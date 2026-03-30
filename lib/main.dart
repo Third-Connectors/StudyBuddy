@@ -1,122 +1,114 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/theme/app_theme.dart';
+import 'features/main_navigation/presentation/main_navigation_screen.dart';
+import 'features/onboarding/presentation/onboarding_screen_1.dart';
+import 'features/onboarding/presentation/onboarding_screen_2.dart';
+import 'features/onboarding/presentation/onboarding_ptn_screen.dart';
+
+/// Entry point for Study Buddy.
+///
+/// Bootstrap order:
+/// 1. [WidgetsFlutterBinding.ensureInitialized] — safe async setup
+/// 2. Lock orientation to portrait (mobile-first design)
+/// 3. Configure the system status bar to be transparent with dark icons
+/// 4. Wrap everything in [ProviderScope] so Riverpod providers are available
+///    throughout the entire widget tree
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // ── Portrait-only orientation ────────────────────────────────────────────
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  // ── Transparent status bar with dark (readable) icons ───────────────────
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light, // iOS
+      systemNavigationBarColor: Colors.transparent,
+      systemNavigationBarIconBrightness: Brightness.dark,
+    ),
+  );
+
+  // Enable edge-to-edge rendering on Android (draws behind nav bar)
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+
+  runApp(
+    // ProviderScope is the root Riverpod container — all providers live here.
+    const ProviderScope(child: StudyBuddyApp()),
+  );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+/// Root [MaterialApp] widget for Study Buddy.
+///
+/// Responsibilities:
+/// - Applies [AppTheme.lightTheme] globally
+/// - Defines named routes for the onboarding flow and main app shell
+/// - Sets [OnboardingScreen1] as the initial route
+class StudyBuddyApp extends StatelessWidget {
+  const StudyBuddyApp({super.key});
 
-  // This widget is the root of your application.
+  // ── Named Route Table ──────────────────────────────────────────────────────
+  static final Map<String, WidgetBuilder> _routes = {
+    '/onboarding1': (_) => const OnboardingScreen1(),
+    '/onboarding2': (_) => const OnboardingScreen2(),
+    '/onboarding_ptn': (_) => const OnboardingPtnScreen(),
+    '/home': (_) => const MainNavigationScreen(),
+  };
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      // ── App identity ────────────────────────────────────────────────────
+      title: 'Study Buddy',
+      debugShowCheckedModeBanner: false,
+
+      // ── Theme ───────────────────────────────────────────────────────────
+      theme: AppTheme.lightTheme,
+
+      // ── Routing ─────────────────────────────────────────────────────────
+      initialRoute: '/onboarding1',
+      routes: _routes,
+
+      // ── Scroll behaviour — subtle over-scroll glow on Android ──────────
+      scrollBehavior: const _StudyBuddyScrollBehaviour(),
+
+      // ── Builder — wraps every screen to enforce edge-to-edge safe area ─
+      builder: (context, child) {
+        // Prevent font scaling beyond 1.15× to protect layout integrity.
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: MediaQuery.of(
+              context,
+            ).textScaler.clamp(minScaleFactor: 0.85, maxScaleFactor: 1.15),
+          ),
+          child: child!,
+        );
+      },
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+// ── Custom Scroll Behaviour ────────────────────────────────────────────────────
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+/// Removes the default Android over-scroll glow effect so the UI looks
+/// identical on iOS and Android — matching the premium feel of the design.
+class _StudyBuddyScrollBehaviour extends ScrollBehavior {
+  const _StudyBuddyScrollBehaviour();
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
-    );
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    // Return the child unmodified — no glow, no stretch.
+    return child;
   }
 }
