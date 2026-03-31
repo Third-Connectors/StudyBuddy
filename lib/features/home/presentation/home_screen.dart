@@ -1,242 +1,474 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 
-import '../../../core/theme/app_colors.dart';
-import '../../../core/theme/app_text_styles.dart';
-import '../data/home_providers.dart';
-import 'widgets/countdown_card_widget.dart';
-import 'widgets/quiz_list_item_widget.dart';
-import 'widgets/stats_row_widget.dart';
+import '../../study/presentation/vak_assessment_screen.dart';
+import '../../study/presentation/tutor_chat_screen.dart';
+import '../../study/presentation/schedule_scanner_screen.dart';
+import '../../leaderboard/presentation/leaderboard_screen.dart';
+import '../../profile/presentation/profile_screen.dart';
 
-/// The main Home dashboard screen.
-///
-/// Sections (top → bottom, inside a [CustomScrollView]):
-/// 1. Personalised greeting header — name, class badge, fire-streak badge
-/// 2. [CountdownCardWidget] — UTBK SNBT 2026 countdown card
-/// 3. [StatsRowWidget] — XP / Rank / Presence gamification stats
-/// 4. "Latest Quiz" section header
-/// 5. [QuizListItemWidget] list — Bahasa Indonesia, Matematika, Bahasa Inggris
-///
-/// State is supplied entirely through Riverpod providers defined in
-/// [home_providers.dart], making this widget trivially unit-testable.
-class HomeScreen extends ConsumerWidget {
+/// Main navigation screen with bottom navigation bar.
+class MainNavigationScreen extends ConsumerStatefulWidget {
+  const MainNavigationScreen({super.key});
+
+  @override
+  ConsumerState<MainNavigationScreen> createState() =>
+      _MainNavigationScreenState();
+}
+
+class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
+  int _currentIndex = 0;
+
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    const VakAssessmentScreen(),
+    const TutorChatScreen(),
+    const ScheduleScannerScreen(),
+    const LeaderboardScreen(),
+    const ProfileScreen(),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: IndexedStack(index: _currentIndex, children: _screens),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _currentIndex,
+        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        elevation: 8,
+        shadowColor: Colors.black26,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home, color: Colors.white),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.psychology_outlined),
+            selectedIcon: Icon(Icons.psychology, color: Colors.white),
+            label: 'VAK',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.chat_outlined),
+            selectedIcon: Icon(Icons.chat, color: Colors.white),
+            label: 'Tutor',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.document_scanner_outlined),
+            selectedIcon: Icon(Icons.document_scanner, color: Colors.white),
+            label: 'Jadwal',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.leaderboard_outlined),
+            selectedIcon: Icon(Icons.leaderboard, color: Colors.white),
+            label: 'Ranking',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person, color: Colors.white),
+            label: 'Profil',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Home screen dashboard.
+class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(userProvider);
-    final quizItems = ref.watch(quizItemsProvider);
-
+  Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundCream,
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // ── 1. Greeting Header ─────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
-                child: _GreetingHeader(
-                  name: user.name,
-                  gradeClass: user.gradeClass,
-                  fireStreak: user.fireStreak,
+      appBar: AppBar(
+        title: const Text('Study Buddy'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            onPressed: () {
+              // TODO: Show notifications
+            },
+            tooltip: 'Notifikasi',
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Welcome card
+            _buildWelcomeCard(context),
+
+            const SizedBox(height: 24),
+
+            // Quick stats
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    '📚',
+                    'Quiz',
+                    '12',
+                    Colors.blue,
+                  ),
                 ),
-              ),
-            ),
-
-            // ── 2. UTBK Countdown Card ─────────────────────────────────────
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20, 20, 20, 0),
-                child: CountdownCardWidget(),
-              ),
-            ),
-
-            // ── 3. Stats Row ───────────────────────────────────────────────
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20, 16, 20, 0),
-                child: StatsRowWidget(),
-              ),
-            ),
-
-            // ── 4. "Latest Quiz" Section Header ───────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 26, 20, 12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text('Latest Quiz', style: AppTextStyles.titleLarge),
-                    GestureDetector(
-                      onTap: () {
-                        // TODO: navigate to full quiz list
-                      },
-                      child: Text(
-                        'See All',
-                        style: GoogleFonts.nunito(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.primaryOrange,
-                        ),
-                      ),
-                    ),
-                  ],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    '🏆',
+                    'XP',
+                    '1,250',
+                    Colors.orange,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    context,
+                    '🔥',
+                    'Streak',
+                    '5 Hari',
+                    Colors.red,
+                  ),
+                ),
+              ],
             ),
 
-            // ── 5. Quiz List ───────────────────────────────────────────────
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverList.builder(
-                itemCount: quizItems.length,
-                itemBuilder: (context, index) {
-                  return QuizListItemWidget(quiz: quizItems[index]);
-                },
-              ),
+            const SizedBox(height: 24),
+
+            // Main features
+            const Text(
+              'Fitur Utama',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
 
-            // Bottom padding so the last card isn't hidden behind the nav bar
-            const SliverToBoxAdapter(child: SizedBox(height: 110)),
+            const SizedBox(height: 16),
+
+            _buildFeatureCard(
+              context,
+              '🧠',
+              'Tes Gaya Belajar',
+              'Temukan cara belajar yang paling efektif untukmu',
+              Colors.purple,
+              () => _navigateToTab(context, 1),
+            ),
+
+            const SizedBox(height: 12),
+
+            _buildFeatureCard(
+              context,
+              '🤖',
+              'Socratic Tutor AI',
+              'Belajar dengan AI yang tidak memberi jawaban langsung',
+              Colors.blue,
+              () => _navigateToTab(context, 2),
+            ),
+
+            const SizedBox(height: 12),
+
+            _buildFeatureCard(
+              context,
+              '📸',
+              'Scan Jadwal',
+              'Foto jadwal pelajaran, ekstrak otomatis',
+              Colors.green,
+              () => _navigateToTab(context, 3),
+            ),
+
+            const SizedBox(height: 12),
+
+            _buildFeatureCard(
+              context,
+              '📝',
+              'Latihan Soal',
+              'Ribuan soal latihan untuk semua mata pelajaran',
+              Colors.orange,
+              () {
+                // TODO: Navigate to quiz screen
+              },
+            ),
+
+            const SizedBox(height: 24),
+
+            // Upcoming section
+            const Text(
+              'Mendatang',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+
+            const SizedBox(height: 16),
+
+            _buildUpcomingCard(
+              context,
+              'Ujian Matematika',
+              'Besok, 08:00',
+              Colors.red,
+            ),
+
+            const SizedBox(height: 12),
+
+            _buildUpcomingCard(
+              context,
+              'Tugas Fisika',
+              '3 hari lagi',
+              Colors.orange,
+            ),
           ],
         ),
       ),
     );
   }
-}
 
-// ── Greeting Header ────────────────────────────────────────────────────────────
-
-/// The personalised top section of the Home screen.
-///
-/// Renders:
-/// - "Welcome, Good Morning" subtitle
-/// - Large bold user name with 👋 wave emoji
-/// - Orange "Class 12" chip
-/// - Flame + streak count badge (top-right)
-class _GreetingHeader extends StatelessWidget {
-  final String name;
-  final String gradeClass;
-  final int fireStreak;
-
-  const _GreetingHeader({
-    required this.name,
-    required this.gradeClass,
-    required this.fireStreak,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Left: greeting text block ────────────────────────────────────
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _buildWelcomeCard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Theme.of(context).primaryColor,
+            Theme.of(context).primaryColor.withOpacity(0.7),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).primaryColor.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              // Subtitle
-              Text(
-                'Welcome, Good Morning',
-                style: GoogleFonts.nunito(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-
-              const SizedBox(height: 3),
-
-              // User name
-              Text(
-                '$name! 👋',
-                style: GoogleFonts.nunito(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.textPrimary,
-                  height: 1.2,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-
-              const SizedBox(height: 8),
-
-              // Grade class badge
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryOrange,
-                  borderRadius: BorderRadius.circular(20),
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Text(
-                  gradeClass,
-                  style: GoogleFonts.nunito(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textWhite,
-                    letterSpacing: 0.3,
-                  ),
+                child: const Text('👋', style: TextStyle(fontSize: 24)),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Halo, Student!',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      'Siap belajar hari ini?',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-        ),
-
-        const SizedBox(width: 12),
-
-        // ── Right: fire streak badge ─────────────────────────────────────
-        _FireStreakBadge(count: fireStreak),
-      ],
-    );
-  }
-}
-
-// ── Fire Streak Badge ──────────────────────────────────────────────────────────
-
-class _FireStreakBadge extends StatelessWidget {
-  final int count;
-
-  const _FireStreakBadge({required this.count});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.07),
-            blurRadius: 12,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('🔥', style: TextStyle(fontSize: 17)),
-          const SizedBox(width: 5),
-          Text(
-            '$count',
-            style: GoogleFonts.nunito(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: AppColors.primaryOrange,
-              height: 1.0,
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => _navigateToTab(2),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: Theme.of(context).primaryColor,
+                padding: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.school),
+                  SizedBox(width: 8),
+                  Text(
+                    'Mulai Belajar dengan AI Tutor',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildStatCard(
+    BuildContext context,
+    String icon,
+    String label,
+    String value,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 24)),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFeatureCard(
+    BuildContext context,
+    String icon,
+    String title,
+    String description,
+    Color color,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey[200]!),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                child: Text(icon, style: const TextStyle(fontSize: 28)),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.chevron_right, color: Colors.grey[400], size: 28),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpcomingCard(
+    BuildContext context,
+    String title,
+    String subtitle,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(Icons.event, color: color),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          Icon(Icons.chevron_right, color: Colors.grey[400]),
+        ],
+      ),
+    );
+  }
+
+  void _navigateToTab(BuildContext context, int index) {
+    final screens = [
+      null, // Home
+      const VakAssessmentScreen(),
+      const TutorChatScreen(),
+      const ScheduleScannerScreen(),
+      const LeaderboardScreen(),
+      const ProfileScreen(),
+    ];
+
+    if (index > 0 && screens[index] != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => screens[index]!),
+      );
+    }
   }
 }
