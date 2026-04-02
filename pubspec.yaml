@@ -15,30 +15,43 @@ dependencies:
   flutter_riverpod: ^2.5.1
   google_fonts: ^6.2.1
 
-  # HTTP Client
+  # ── HTTP Client ────────────────────────────────────────────────────────────
   dio: ^5.4.3
 
-  # State Management & Utils
+  # ── State Management & Utils ──────────────────────────────────────────────
   riverpod: ^2.5.1
   equatable: ^2.0.5
 
-  # Local Storage
+  # ── Local Storage ─────────────────────────────────────────────────────────
   shared_preferences: ^2.2.2
   hive: ^2.2.3
   hive_flutter: ^1.1.0
 
-  # Image & File Handling
+  # ── Image & File Handling ─────────────────────────────────────────────────
   image_picker: ^1.0.7
   image: ^4.1.7
+  cross_file: ^0.3.3+8
 
-  # JSON Serialization
+  # ── JSON Serialization ────────────────────────────────────────────────────
   json_annotation: ^4.8.1
 
-  # Utilities
+  # ── Utilities ─────────────────────────────────────────────────────────────
   intl: ^0.19.0
   uuid: ^4.3.3
   logger: ^2.2.0
   connectivity_plus: ^5.0.2
+
+  # ── Firebase (Push Notifications) ─────────────────────────────────────────
+  firebase_core: ^2.24.2
+  firebase_messaging: ^14.7.9
+  flutter_local_notifications: ^16.3.2
+
+  # ── Secure Storage (for JWT tokens) ───────────────────────────────────────
+  flutter_secure_storage: ^9.0.0
+
+  # ── Time & Scheduling ─────────────────────────────────────────────────────
+  timezone: ^0.9.2
+  cron: ^0.6.1
 
 dev_dependencies:
   flutter_test:

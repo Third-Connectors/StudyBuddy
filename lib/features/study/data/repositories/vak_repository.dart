@@ -1,10 +1,33 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+// ════════════════════════════════════════════════════════════════════════════
+// 🧠 VAK REPOSITORY — KNN Classification for Learning Styles
+// ════════════════════════════════════════════════════════════════════════════
+//
+// VAK (Visual, Auditory, Kinesthetic) Assessment.
+//
+// Features:
+// - 20-question psychometric survey
+// - KNN-like classification algorithm
+// - Local calculation (MVP) + Backend ML service (Production)
+// - Recalibration once per semester
+//
+// Architecture:
+// - MVP: Local KNN calculation in Flutter
+// - Production: Python FastAPI ML Service with Scikit-learn KNN
+// ════════════════════════════════════════════════════════════════════════════
+
+import 'package:flutter/foundation.dart';
 
 import '../models/vak_model.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/api_config.dart';
 
 /// Repository for VAK (Visual, Auditory, Kinesthetic) assessment.
+///
+/// Handles:
+/// - Getting assessment questions
+/// - Submitting answers
+/// - Calculating learning style using KNN-like algorithm
+/// - Storing/retrieving results
 class VakRepository {
   final ApiClient _apiClient;
 
@@ -12,44 +35,116 @@ class VakRepository {
 
   /// Get VAK assessment questions.
   ///
-  /// ⚠️ TODO: Implement actual API call
-  ///
-  /// For now, returns 20 hardcoded psychometric questions.
+  /// MVP: Returns 20 hardcoded psychometric questions.
+  /// Production: Fetch from MongoDB via backend API.
   Future<List<VakQuestion>> getQuestions() async {
-    // ⚠️ PLACEHOLDER - Replace with actual API call
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      // Try to fetch from backend first
+      final response = await _apiClient.get(ApiEndpoints.vakQuestions);
+      final questions = response['questions'] as List?;
 
-    // Return hardcoded questions for offline use
+      if (questions != null && questions.isNotEmpty) {
+        return questions
+            .map((q) => VakQuestion.fromJson(q as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('[VakRepository] Fetch from backend failed, using local: $e');
+    }
+
+    // Fallback: Return hardcoded questions for offline use
     return _getHardcodedQuestions();
-
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.get(ApiEndpoints.vakQuestions);
-    return (response['questions'] as List)
-        .map((q) => VakQuestion.fromJson(q))
-        .toList();
-    */
   }
 
   /// Submit VAK answers and get result.
   ///
-  /// ⚠️ TODO: Implement actual API call
-  ///
-  /// For now, calculates result locally using KNN-like scoring.
-  Future<VakResult> submitAnswers(
-    String userId,
-    List<VakAnswer> answers,
-  ) async {
-    // ⚠️ PLACEHOLDER - Calculate result locally
-    await Future.delayed(const Duration(seconds: 1));
+  /// MVP: Calculates result locally using KNN-like scoring.
+  /// Production: Sends to FastAPI ML Service for KNN classification.
+  Future<VakResult> submitAnswers({
+    required String userId,
+    required List<VakAnswer> answers,
+  }) async {
+    try {
+      // Try backend ML service first (Production)
+      final response = await _apiClient.post(
+        '${ApiConfig.mlServiceUrl}/vak/classify',
+        {'userId': userId, 'answers': answers.map((a) => a.toJson()).toList()},
+      );
 
-    // Calculate scores using simple counting (KNN-like approach)
+      return VakResult.fromJson(response['result'] as Map<String, dynamic>);
+    } catch (e) {
+      debugPrint('[VakRepository] ML service failed, using local: $e');
+
+      // Fallback: Local KNN-like calculation
+      return _calculateResultLocally(userId, answers);
+    }
+  }
+
+  /// Get user's VAK result.
+  ///
+  /// Backend: GET /vak/result?userId=$userId
+  Future<VakResult?> getUserResult(String userId) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiEndpoints.vakResult}?userId=$userId',
+      );
+
+      return VakResult.fromJson(response['result'] as Map<String, dynamic>);
+    } catch (e) {
+      debugPrint('[VakRepository] Get result error: $e');
+      return null;
+    }
+  }
+
+  /// Check if user can recalibrate (once per semester).
+  ///
+  /// Backend: GET /vak/can-recalibrate?userId=$userId
+  Future<bool> canRecalibrate(String userId) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiEndpoints.vakResult}/can-recalibrate?userId=$userId',
+      );
+      return response['canRecalibrate'] as bool? ?? true;
+    } catch (e) {
+      debugPrint('[VakRepository] Can recalibrate error: $e');
+
+      // Fallback: Check local storage for last assessment date
+      return await _checkLocalRecalibrationEligibility(userId);
+    }
+  }
+
+  /// Save VAK result to local storage (for offline use).
+  ///
+  /// TODO: Implement with Hive/SharedPreferences.
+  Future<void> saveResultLocally(VakResult result) async {
+    // TODO: Save to Hive
+    debugPrint(
+      '[VakRepository] Saving result locally: ${result.dominantStyle}',
+    );
+  }
+
+  /// Get last VAK result from local storage.
+  ///
+  /// TODO: Implement with Hive/SharedPreferences.
+  Future<VakResult?> getLocalResult(String userId) async {
+    // TODO: Load from Hive
+    return null;
+  }
+
+  /// Calculate VAK result locally using KNN-like scoring.
+  ///
+  /// This is a simplified KNN approach:
+  /// 1. Count responses for each style (A=Visual, B=Auditory, C=Kinesthetic)
+  /// 2. Normalize scores to 0-1 range
+  /// 3. Determine dominant style
+  VakResult _calculateResultLocally(String userId, List<VakAnswer> answers) {
     double visualScore = 0;
     double auditoryScore = 0;
     double kinestheticScore = 0;
 
+    // Count scores (KNN-like feature counting)
     for (final answer in answers) {
-      switch (answer.selectedOption) {
+      switch (answer.selectedOption.toUpperCase()) {
         case 'A':
           visualScore++;
           break;
@@ -63,7 +158,7 @@ class VakRepository {
     }
 
     // Normalize scores (0-1 range)
-    final total = answers.length;
+    final total = answers.length.toDouble();
     visualScore = visualScore / total;
     auditoryScore = auditoryScore / total;
     kinestheticScore = kinestheticScore / total;
@@ -79,7 +174,12 @@ class VakRepository {
         .reduce((a, b) => a.value > b.value ? a : b)
         .key;
 
-    final result = VakResult(
+    // Calculate confidence (how dominant is the dominant style?)
+    final maxScore = scores[dominantStyle]!;
+    final avgScore = (visualScore + auditoryScore + kinestheticScore) / 3;
+    final confidence = ((maxScore - avgScore) * 3).clamp(0.0, 1.0);
+
+    return VakResult(
       userId: userId,
       dominantStyle: dominantStyle,
       visualScore: visualScore,
@@ -87,65 +187,32 @@ class VakRepository {
       kinestheticScore: kinestheticScore,
       completedAt: DateTime.now(),
       answers: answers,
+      confidence: confidence,
     );
-
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.post(
-      ApiEndpoints.vakSubmit,
-      {
-        'userId': userId,
-        'answers': answers.map((a) => a.toJson()).toList(),
-      },
-    );
-    return VakResult.fromJson(response['result']);
-    */
-
-    return result;
   }
 
-  /// Get user's VAK result.
+  /// Check local eligibility for recalibration.
   ///
-  /// ⚠️ TODO: Implement actual API call
-  Future<VakResult?> getUserResult(String userId) async {
-    // ⚠️ PLACEHOLDER - Replace with actual API call
-    await Future.delayed(const Duration(milliseconds: 500));
+  /// Allows recalibration if:
+  /// - No previous result exists
+  /// - Last assessment was > 4 months ago (semester)
+  Future<bool> _checkLocalRecalibrationEligibility(String userId) async {
+    final localResult = await getLocalResult(userId);
 
-    // Return null (no result yet)
-    return null;
+    if (localResult == null) {
+      return true; // No previous result, allow
+    }
 
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.get(
-      '${ApiEndpoints.vakResult}?userId=$userId',
-    );
-    return VakResult.fromJson(response['result']);
-    */
-  }
-
-  /// Recalibrate VAK assessment (user can retake once per semester).
-  ///
-  /// ⚠️ TODO: Implement actual API call
-  Future<bool> canRecalibrate(String userId) async {
-    // ⚠️ PLACEHOLDER - Replace with actual API call
-    await Future.delayed(const Duration(milliseconds: 300));
-
-    // For now, always allow recalibration
-    return true;
-
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.get(
-      '${ApiEndpoints.vakResult}/can-recalibrate?userId=$userId',
-    );
-    return response['canRecalibrate'] as bool;
-    */
+    // Check if > 4 months ago (one semester)
+    final monthsSince =
+        DateTime.now().difference(localResult.completedAt).inDays ~/ 30;
+    return monthsSince >= 4;
   }
 
   /// Hardcoded VAK questions (20 psychometric survey questions).
   ///
   /// These questions are designed to identify learning style preferences
-  /// for Indonesian high school students.
+  /// for Indonesian high school students (SMA/MA/SMK).
   List<VakQuestion> _getHardcodedQuestions() {
     return [
       const VakQuestion(
@@ -199,7 +266,7 @@ class VakRepository {
       ),
       const VakQuestion(
         id: 8,
-        question: 'Aku lebih suka tugas yang...',
+        question: 'Aku paling suka tugas yang...',
         optionA: 'Banyak gambar dan ilustrasi',
         optionB: 'Ada diskusi presentasi',
         optionC: 'Ada praktik atau eksperimen',
@@ -213,7 +280,7 @@ class VakRepository {
       ),
       const VakQuestion(
         id: 10,
-        question: 'Aku paling suka pelajaran yang...',
+        question: 'Aku lebih suka pelajaran yang...',
         optionA: 'Banyak diagram dan gambar (seperti Biologi)',
         optionB: 'Banyak diskusi dan cerita (seperti Sejarah)',
         optionC: 'Banyak praktikum (seperti Kimia/Fisika)',

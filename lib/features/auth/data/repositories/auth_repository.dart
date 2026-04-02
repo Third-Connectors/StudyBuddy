@@ -1,54 +1,88 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+// ════════════════════════════════════════════════════════════════════════════
+// 🔐 AUTH REPOSITORY — NestJS API Gateway Integration
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Handles authentication with NestJS backend:
+// - Login/Register with JWT tokens
+// - Profile management
+// - Token refresh
+// - Password reset
+//
+// Backend: NestJS API Gateway with PostgreSQL
+// Security: JWT tokens, bcrypt password hashing
+// ════════════════════════════════════════════════════════════════════════════
+
+import 'package:flutter/foundation.dart';
 
 import '../models/user_model.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/api_config.dart';
+import '../../../../core/services/auth_service.dart';
 
 /// Authentication repository for handling user auth operations.
+///
+/// Communicates with NestJS API Gateway for:
+/// - User registration and login
+/// - Profile management
+/// - Token refresh and logout
 class AuthRepository {
   final ApiClient _apiClient;
+  final AuthService _authService;
 
-  AuthRepository(this._apiClient);
+  AuthRepository(this._apiClient, AuthService? authService)
+    : _authService = authService ?? AuthService();
 
   /// Login with email and password.
   ///
-  /// ⚠️ TODO: Implement actual API call
-  /// Replace the placeholder with:
-  /// ```dart
-  /// final response = await _apiClient.post(
-  ///   ApiEndpoints.login,
-  ///   {'email': email, 'password': password},
-  /// );
-  /// return User.fromJson(response['user']);
-  /// ```
+  /// Returns [User] object and saves JWT tokens to secure storage.
+  ///
+  /// Backend: POST /auth/login
+  /// Response: { user: {...}, accessToken: "...", refreshToken: "..." }
   Future<User> login(String email, String password) async {
-    // ⚠️ PLACEHOLDER - Replace with actual API call
-    await Future.delayed(const Duration(seconds: 1)); // Simulate network delay
+    try {
+      final response = await _apiClient.post(ApiEndpoints.login, {
+        'email': email,
+        'password': password,
+      });
 
-    // Mock user for testing
-    return User(
-      id: 'user_123',
-      email: email,
-      name: 'Test User',
-      role: UserRole.student,
-      schoolName: 'SMA Negeri 1 Example',
-      gradeLevel: '11',
-      createdAt: DateTime.now(),
-    );
+      // Extract tokens and user data
+      final accessToken = response['accessToken'] as String?;
+      final refreshToken = response['refreshToken'] as String?;
+      final userData = response['user'] as Map<String, dynamic>?;
 
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.post(
-      ApiEndpoints.login,
-      {'email': email, 'password': password},
-    );
-    return User.fromJson(response['user']);
-    */
+      if (accessToken == null || userData == null) {
+        throw ApiException(
+          message: 'Invalid response from server',
+          details: 'Missing accessToken or user data',
+        );
+      }
+
+      // Save tokens to secure storage
+      await _authService.saveTokens(
+        accessToken: accessToken,
+        refreshToken: refreshToken ?? '',
+        userId: userData['id'] as String?,
+      );
+
+      // Update API client with new token
+      _apiClient.setAuthToken(accessToken);
+
+      return User.fromJson(userData);
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      debugPrint('[AuthRepository] Login error: $e');
+      throw ApiException(
+        message: 'Login failed. Please check your credentials.',
+        details: e.toString(),
+      );
+    }
   }
 
   /// Register a new user.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: POST /auth/register
+  /// Response: { user: {...}, accessToken: "...", refreshToken: "..." }
   Future<User> register({
     required String name,
     required String email,
@@ -56,132 +90,217 @@ class AuthRepository {
     String? schoolName,
     String? gradeLevel,
   }) async {
-    // ⚠️ PLACEHOLDER - Replace with actual API call
-    await Future.delayed(const Duration(seconds: 1));
-
-    return User(
-      id: 'user_${DateTime.now().millisecondsSinceEpoch}',
-      email: email,
-      name: name,
-      role: UserRole.student,
-      schoolName: schoolName,
-      gradeLevel: gradeLevel,
-      createdAt: DateTime.now(),
-    );
-
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.post(
-      ApiEndpoints.register,
-      {
+    try {
+      final response = await _apiClient.post(ApiEndpoints.register, {
         'name': name,
         'email': email,
         'password': password,
         'schoolName': schoolName,
         'gradeLevel': gradeLevel,
-      },
-    );
-    return User.fromJson(response['user']);
-    */
+      });
+
+      final accessToken = response['accessToken'] as String?;
+      final refreshToken = response['refreshToken'] as String?;
+      final userData = response['user'] as Map<String, dynamic>?;
+
+      if (accessToken == null || userData == null) {
+        throw ApiException(
+          message: 'Invalid response from server',
+          details: 'Missing accessToken or user data',
+        );
+      }
+
+      await _authService.saveTokens(
+        accessToken: accessToken,
+        refreshToken: refreshToken ?? '',
+        userId: userData['id'] as String?,
+      );
+
+      _apiClient.setAuthToken(accessToken);
+
+      return User.fromJson(userData);
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      debugPrint('[AuthRepository] Register error: $e');
+      throw ApiException(
+        message: 'Registration failed. Please try again.',
+        details: e.toString(),
+      );
+    }
   }
 
   /// Logout the current user.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: POST /auth/logout
+  /// Clears tokens from secure storage.
   Future<void> logout() async {
-    // ⚠️ PLACEHOLDER - Replace with actual API call
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    // TODO: Uncomment when backend is ready
-    /*
-    await _apiClient.post(ApiEndpoints.logout, null);
-    */
+    try {
+      // Call backend to invalidate token
+      await _apiClient.post(ApiEndpoints.logout, null);
+    } catch (e) {
+      debugPrint('[AuthRepository] Logout backend error: $e');
+      // Continue with local logout even if backend fails
+    } finally {
+      // Always clear local tokens
+      await _authService.clearTokens();
+      _apiClient.clearAuthToken();
+    }
   }
 
   /// Get current user profile.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: GET /user/profile
+  /// Requires valid JWT token.
   Future<User> getProfile() async {
-    // ⚠️ PLACEHOLDER - Replace with actual API call
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final response = await _apiClient.get(ApiEndpoints.profile);
+      final userData = response['user'] as Map<String, dynamic>?;
 
-    // Mock user
-    return User(
-      id: 'user_123',
-      email: 'user@studybuddy.id',
-      name: 'Current User',
-      role: UserRole.student,
-      schoolName: 'SMA Negeri 1 Example',
-      gradeLevel: '11',
-      createdAt: DateTime.now(),
-      lastLoginAt: DateTime.now(),
-    );
+      if (userData == null) {
+        throw ApiException(
+          message: 'Profile not found',
+          details: 'User data is null',
+        );
+      }
 
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.get(ApiEndpoints.profile);
-    return User.fromJson(response['user']);
-    */
+      return User.fromJson(userData);
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      debugPrint('[AuthRepository] Get profile error: $e');
+      throw ApiException(
+        message: 'Failed to load profile',
+        details: e.toString(),
+      );
+    }
   }
 
   /// Update user profile.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: PUT /user/profile
   Future<User> updateProfile({
     String? name,
     String? schoolName,
     String? gradeLevel,
     String? profileImageUrl,
   }) async {
-    // ⚠️ PLACEHOLDER - Replace with actual API call
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final response = await _apiClient.put(ApiEndpoints.updateProfile, {
+        if (name != null) 'name': name,
+        if (schoolName != null) 'schoolName': schoolName,
+        if (gradeLevel != null) 'gradeLevel': gradeLevel,
+        if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
+      });
 
-    // Mock updated user
-    return User(
-      id: 'user_123',
-      email: 'user@studybuddy.id',
-      name: name ?? 'Current User',
-      role: UserRole.student,
-      schoolName: schoolName ?? 'SMA Negeri 1 Example',
-      gradeLevel: gradeLevel ?? '11',
-      profileImageUrl: profileImageUrl,
-      createdAt: DateTime.now(),
-      lastLoginAt: DateTime.now(),
-    );
+      final userData = response['user'] as Map<String, dynamic>?;
 
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.put(
-      ApiEndpoints.updateProfile,
-      {
-        'name': name,
-        'schoolName': schoolName,
-        'gradeLevel': gradeLevel,
-        'profileImageUrl': profileImageUrl,
-      },
-    );
-    return User.fromJson(response['user']);
-    */
+      if (userData == null) {
+        throw ApiException(
+          message: 'Invalid response from server',
+          details: 'User data is null after update',
+        );
+      }
+
+      return User.fromJson(userData);
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      debugPrint('[AuthRepository] Update profile error: $e');
+      throw ApiException(
+        message: 'Failed to update profile',
+        details: e.toString(),
+      );
+    }
   }
 
   /// Forgot password - trigger password reset email.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: POST /auth/forgot-password
   Future<void> forgotPassword(String email) async {
-    // ⚠️ PLACEHOLDER - Replace with actual API call
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      await _apiClient.post(ApiEndpoints.forgotPassword, {'email': email});
+    } on ApiException {
+      rethrow;
+    } catch (e) {
+      debugPrint('[AuthRepository] Forgot password error: $e');
+      throw ApiException(
+        message: 'Failed to send password reset email',
+        details: e.toString(),
+      );
+    }
+  }
 
-    // TODO: Uncomment when backend is ready
-    /*
-    await _apiClient.post(
-      ApiEndpoints.forgotPassword,
-      {'email': email},
-    );
-    */
+  /// Refresh the access token using refresh token.
+  ///
+  /// Called automatically by ApiClient interceptor when 401 is received.
+  ///
+  /// Backend: POST /auth/refresh
+  Future<String> refreshToken() async {
+    try {
+      final refreshToken = await _authService.getRefreshToken();
+
+      if (refreshToken == null || refreshToken.isEmpty) {
+        throw ApiException(
+          message: 'No refresh token available',
+          details: 'User needs to log in again',
+        );
+      }
+
+      final response = await _apiClient.post(ApiEndpoints.refreshToken, {
+        'refreshToken': refreshToken,
+      });
+
+      final newAccessToken = response['accessToken'] as String?;
+      final newRefreshToken = response['refreshToken'] as String?;
+
+      if (newAccessToken == null) {
+        throw ApiException(
+          message: 'Invalid refresh response',
+          details: 'Missing accessToken',
+        );
+      }
+
+      // Save new tokens
+      await _authService.saveTokens(
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken ?? refreshToken,
+      );
+
+      _apiClient.setAuthToken(newAccessToken);
+
+      return newAccessToken;
+    } on ApiException {
+      // Clear tokens on refresh failure (session expired)
+      await _authService.clearTokens();
+      _apiClient.clearAuthToken();
+      rethrow;
+    } catch (e) {
+      debugPrint('[AuthRepository] Refresh token error: $e');
+      throw ApiException(
+        message: 'Session expired. Please log in again.',
+        details: e.toString(),
+      );
+    }
+  }
+
+  /// Check if user is currently authenticated.
+  Future<bool> isAuthenticated() async {
+    return await _authService.isAuthenticated();
+  }
+
+  /// Get stored user ID.
+  Future<String?> getUserId() async {
+    return await _authService.getUserId();
+  }
+
+  /// Get current access token (for API calls).
+  Future<String?> getAccessToken() async {
+    return await _authService.getAccessToken();
   }
 }
 
 /// Provider for the authentication repository.
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ref.watch(apiClientProvider));
+  return AuthRepository(ref.watch(apiClientProvider), authService);
 });

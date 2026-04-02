@@ -1,4 +1,18 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+// ════════════════════════════════════════════════════════════════════════════
+// 📝 QUIZ REPOSITORY — Quiz & Leaderboard Operations
+// ════════════════════════════════════════════════════════════════════════════
+//
+// Handles:
+// - Quiz listing and filtering
+// - Quiz attempt and submission
+// - Score calculation and XP rewards
+// - Leaderboard rankings
+// - User profile stats
+//
+// Backend: NestJS API Gateway with MongoDB (quiz content) & PostgreSQL (results)
+// ════════════════════════════════════════════════════════════════════════════
+
+import 'package:flutter/foundation.dart';
 
 import '../models/quiz_model.dart';
 import '../../../profile/data/models/profile_model.dart';
@@ -13,201 +27,155 @@ class QuizRepository {
 
   /// Get list of available quizzes.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: GET /quiz
+  /// Query params: subject, difficulty, gradeLevel
   Future<List<Quiz>> getQuizzes({
     String? subjectCode,
     String? difficulty,
+    String? gradeLevel,
   }) async {
-    // ⚠️ PLACEHOLDER - Return mock quizzes
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final response = await _apiClient.get(
+        ApiEndpoints.quizList,
+        queryParameters: {
+          if (subjectCode != null) 'subject': subjectCode,
+          if (difficulty != null) 'difficulty': difficulty,
+          if (gradeLevel != null) 'gradeLevel': gradeLevel,
+        },
+      );
 
-    return [
-      Quiz(
-        id: 'quiz_1',
-        title: 'Latihan Matematika - Aljabar',
-        subject: 'Matematika',
-        subjectCode: 'MTK',
-        difficulty: 'medium',
-        questionCount: 10,
-        durationMinutes: 30,
-        xpReward: 100,
-        description: 'Latihan soal aljabar untuk kelas 11',
-        createdAt: DateTime(2024, 1, 1),
-      ),
-      Quiz(
-        id: 'quiz_2',
-        title: 'Latihan Fisika - Kinematika',
-        subject: 'Fisika',
-        subjectCode: 'FIS',
-        difficulty: 'hard',
-        questionCount: 15,
-        durationMinutes: 45,
-        xpReward: 150,
-        description: 'Soal kinematika gerak lurus dan parabola',
-        createdAt: DateTime(2024, 1, 2),
-      ),
-      Quiz(
-        id: 'quiz_3',
-        title: 'Latihan Biologi - Sel',
-        subject: 'Biologi',
-        subjectCode: 'BIO',
-        difficulty: 'easy',
-        questionCount: 10,
-        durationMinutes: 20,
-        xpReward: 80,
-        description: 'Mengenal struktur dan fungsi sel',
-        createdAt: DateTime(2024, 1, 3),
-      ),
-    ];
+      final quizzes = response['quizzes'] as List?;
+      if (quizzes == null) return [];
 
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.get(
-      ApiEndpoints.quizList,
-      queryParameters: {
-        if (subjectCode != null) 'subject': subjectCode,
-        if (difficulty != null) 'difficulty': difficulty,
-      },
-    );
-    return (response['quizzes'] as List)
-        .map((q) => Quiz.fromJson(q))
-        .toList();
-    */
+      return quizzes
+          .map((q) => Quiz.fromJson(q as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('[QuizRepository] Get quizzes error: $e');
+      return [];
+    }
   }
 
   /// Get quiz details by ID.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: GET /quiz/{quizId}
   Future<Quiz?> getQuizById(String quizId) async {
-    // ⚠️ PLACEHOLDER - Return null
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final response = await _apiClient.get(
+        ApiEndpoints.quizDetail.replaceFirst('{quizId}', quizId),
+      );
 
-    return null;
-
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.get(
-      ApiEndpoints.quizDetail.replaceFirst('{quizId}', quizId),
-    );
-    return Quiz.fromJson(response['quiz']);
-    */
+      return Quiz.fromJson(response['quiz'] as Map<String, dynamic>);
+    } catch (e) {
+      debugPrint('[QuizRepository] Get quiz by ID error: $e');
+      return null;
+    }
   }
 
   /// Get quiz questions.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: GET /quiz/{quizId}/questions
   Future<List<QuizQuestion>> getQuizQuestions(String quizId) async {
-    // ⚠️ PLACEHOLDER - Return mock questions
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final response = await _apiClient.get(
+        '${ApiEndpoints.quizDetail}/$quizId/questions',
+      );
 
-    return [
-      const QuizQuestion(
-        id: 'q1',
-        question: 'Jika 2x + 3 = 11, maka nilai x adalah...',
-        options: ['2', '3', '4', '5'],
-        correctIndex: 2,
-        explanation: '2x + 3 = 11 → 2x = 8 → x = 4',
-      ),
-      const QuizQuestion(
-        id: 'q2',
-        question: 'Rumus luas lingkaran adalah...',
-        options: ['πr', 'πr²', '2πr', 'πd'],
-        correctIndex: 1,
-        explanation: 'Luas lingkaran = π × r²',
-      ),
-    ];
+      final questions = response['questions'] as List?;
+      if (questions == null) return [];
 
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.get(
-      '${ApiEndpoints.quizDetail}/$quizId/questions',
-    );
-    return (response['questions'] as List)
-        .map((q) => QuizQuestion.fromJson(q))
-        .toList();
-    */
+      return questions
+          .map((q) => QuizQuestion.fromJson(q as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('[QuizRepository] Get questions error: $e');
+      return [];
+    }
   }
 
   /// Submit quiz answers.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: POST /quiz/{quizId}/submit
+  /// Response includes score, XP earned, and correct answers
   Future<QuizResult> submitQuiz({
     required String quizId,
     required String userId,
     required List<int> selectedAnswers,
     required Duration timeSpent,
   }) async {
-    // ⚠️ PLACEHOLDER - Calculate mock result
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final response = await _apiClient
+          .post(ApiEndpoints.quizSubmit.replaceFirst('{quizId}', quizId), {
+            'userId': userId,
+            'answers': selectedAnswers,
+            'timeSpentSeconds': timeSpent.inSeconds,
+          });
 
-    // Calculate mock score
-    final correctCount = selectedAnswers.where((a) => a == 0).length;
-    final total = selectedAnswers.length;
-    final score = (correctCount / total * 100).round();
-    final xpEarned = (score / 100 * 100).round();
-
-    return QuizResult(
-      id: 'result_${DateTime.now().millisecondsSinceEpoch}',
-      quizId: quizId,
-      userId: userId,
-      selectedAnswers: selectedAnswers,
-      correctCount: correctCount,
-      score: score,
-      xpEarned: xpEarned,
-      completedAt: DateTime.now(),
-      timeSpent: timeSpent,
-    );
-
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.post(
-      ApiEndpoints.quizSubmit.replaceFirst('{quizId}', quizId),
-      {
-        'userId': userId,
-        'answers': selectedAnswers,
-        'timeSpentSeconds': timeSpent.inSeconds,
-      },
-    );
-    return QuizResult.fromJson(response['result']);
-    */
+      return QuizResult.fromJson(response['result'] as Map<String, dynamic>);
+    } catch (e) {
+      debugPrint('[QuizRepository] Submit quiz error: $e');
+      throw Exception('Failed to submit quiz: $e');
+    }
   }
 
   /// Get quiz result by ID.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: GET /quiz/result/{resultId}
   Future<QuizResult?> getQuizResult(String resultId) async {
-    // ⚠️ PLACEHOLDER - Return null
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final response = await _apiClient.get(
+        ApiEndpoints.quizResult.replaceFirst('{quizId}', resultId),
+      );
 
-    return null;
-
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.get(
-      ApiEndpoints.quizResult.replaceFirst('{quizId}', resultId),
-    );
-    return QuizResult.fromJson(response['result']);
-    */
+      return QuizResult.fromJson(response['result'] as Map<String, dynamic>);
+    } catch (e) {
+      debugPrint('[QuizRepository] Get result error: $e');
+      return null;
+    }
   }
 
   /// Get user's quiz history.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: GET /quiz/history?userId=$userId
   Future<List<QuizResult>> getQuizHistory(String userId) async {
-    // ⚠️ PLACEHOLDER - Return empty list
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final response = await _apiClient.get(
+        '${ApiEndpoints.quizList}/history',
+        queryParameters: {'userId': userId},
+      );
 
-    return [];
+      final results = response['results'] as List?;
+      if (results == null) return [];
 
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.get(
-      '${ApiEndpoints.quizList}/history?userId=$userId',
-    );
-    return (response['results'] as List)
-        .map((r) => QuizResult.fromJson(r))
-        .toList();
-    */
+      return results
+          .map((r) => QuizResult.fromJson(r as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('[QuizRepository] Get history error: $e');
+      return [];
+    }
+  }
+
+  /// Get recommended quizzes based on user's VAK style and weak subjects.
+  ///
+  /// Backend: GET /quiz/recommended?userId=$userId
+  Future<List<Quiz>> getRecommendedQuizzes(String userId) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiEndpoints.quizList}/recommended',
+        queryParameters: {'userId': userId},
+      );
+
+      final quizzes = response['quizzes'] as List?;
+      if (quizzes == null) return [];
+
+      return quizzes
+          .map((q) => Quiz.fromJson(q as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('[QuizRepository] Get recommended error: $e');
+      return [];
+    }
   }
 }
 
@@ -219,95 +187,108 @@ class LeaderboardRepository {
 
   /// Get leaderboard entries.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: GET /leaderboard (or /leaderboard/weekly, /leaderboard/monthly)
   Future<List<LeaderboardEntry>> getLeaderboard({
     String? timeframe, // 'daily', 'weekly', 'monthly', 'alltime'
     int limit = 50,
   }) async {
-    // ⚠️ PLACEHOLDER - Return mock leaderboard
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      String endpoint;
+      if (timeframe == 'weekly') {
+        endpoint = ApiEndpoints.leaderboardWeekly;
+      } else if (timeframe == 'monthly') {
+        endpoint = ApiEndpoints.leaderboardMonthly;
+      } else {
+        endpoint = ApiEndpoints.leaderboard;
+      }
 
-    return List.generate(
-      limit,
-      (index) => LeaderboardEntry(
-        id: 'user_$index',
-        userId: 'user_$index',
-        userName: 'User ${index + 1}',
-        schoolName: 'SMA Negeri ${index + 1}',
-        rank: index + 1,
-        xp: 10000 - (index * 100),
-        level: 10 - (index ~/ 5),
-        badges: 5 - (index ~/ 10),
-        lastActiveAt: DateTime.now(),
-      ),
-    );
+      final response = await _apiClient.get(
+        endpoint,
+        queryParameters: {'limit': limit},
+      );
 
-    // TODO: Uncomment when backend is ready
-    /*
-    final endpoint = timeframe == 'weekly'
-        ? ApiEndpoints.leaderboardWeekly
-        : timeframe == 'monthly'
-            ? ApiEndpoints.leaderboardMonthly
-            : ApiEndpoints.leaderboard;
+      final entries = response['entries'] as List?;
+      if (entries == null) return [];
 
-    final response = await _apiClient.get(
-      endpoint,
-      queryParameters: {'limit': limit},
-    );
-    return (response['entries'] as List)
-        .map((e) => LeaderboardEntry.fromJson(e))
-        .toList();
-    */
+      return entries
+          .map((e) => LeaderboardEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('[LeaderboardRepository] Get leaderboard error: $e');
+      return [];
+    }
   }
 
   /// Get user's rank on leaderboard.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: GET /leaderboard/rank?userId=$userId
   Future<int?> getUserRank(String userId) async {
-    // ⚠️ PLACEHOLDER - Return null
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final response = await _apiClient.get(
+        '${ApiEndpoints.leaderboard}/rank',
+        queryParameters: {'userId': userId},
+      );
 
-    return null;
-
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.get(
-      '${ApiEndpoints.leaderboard}/rank?userId=$userId',
-    );
-    return response['rank'] as int?;
-    */
+      return response['rank'] as int?;
+    } catch (e) {
+      debugPrint('[LeaderboardRepository] Get rank error: $e');
+      return null;
+    }
   }
 
   /// Get user's profile with stats.
   ///
-  /// ⚠️ TODO: Implement actual API call
+  /// Backend: GET /user/stats/{userId}
   Future<UserProfile> getUserProfile(String userId) async {
-    // ⚠️ PLACEHOLDER - Return mock profile
-    await Future.delayed(const Duration(milliseconds: 500));
+    try {
+      final response = await _apiClient.get(
+        ApiEndpoints.userStats.replaceFirst('{userId}', userId),
+      );
 
-    return UserProfile(
-      userId: userId,
-      name: 'Test User',
-      email: 'user@studybuddy.id',
-      schoolName: 'SMA Negeri 1 Example',
-      gradeLevel: '11',
-      xp: 1500,
-      level: 5,
-      badges: 3,
-      quizzesCompleted: 25,
-      averageScore: 85,
-      learningStyle: 'visual',
-      joinedAt: DateTime(2024, 1, 1),
-      lastActiveAt: DateTime.now(),
-    );
+      return UserProfile.fromJson(response['profile'] as Map<String, dynamic>);
+    } catch (e) {
+      debugPrint('[LeaderboardRepository] Get profile error: $e');
+      throw Exception('Failed to load user profile: $e');
+    }
+  }
 
-    // TODO: Uncomment when backend is ready
-    /*
-    final response = await _apiClient.get(
-      ApiEndpoints.userStats.replaceFirst('{userId}', userId),
-    );
-    return UserProfile.fromJson(response['profile']);
-    */
+  /// Get user's friends leaderboard (social comparison).
+  ///
+  /// Backend: GET /leaderboard/friends
+  Future<List<LeaderboardEntry>> getFriendsLeaderboard({int limit = 20}) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiEndpoints.leaderboard}/friends',
+        queryParameters: {'limit': limit},
+      );
+
+      final entries = response['entries'] as List?;
+      if (entries == null) return [];
+
+      return entries
+          .map((e) => LeaderboardEntry.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('[LeaderboardRepository] Get friends leaderboard error: $e');
+      return [];
+    }
+  }
+
+  /// Get user's rank progression (weekly/monthly trend).
+  ///
+  /// Backend: GET /leaderboard/progression?userId=$userId
+  Future<List<Map<String, dynamic>>> getRankProgression(String userId) async {
+    try {
+      final response = await _apiClient.get(
+        '${ApiEndpoints.leaderboard}/progression',
+        queryParameters: {'userId': userId},
+      );
+
+      return response['progression'] as List<Map<String, dynamic>>? ?? [];
+    } catch (e) {
+      debugPrint('[LeaderboardRepository] Get progression error: $e');
+      return [];
+    }
   }
 }
 

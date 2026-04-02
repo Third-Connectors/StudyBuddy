@@ -1,178 +1,400 @@
 // ════════════════════════════════════════════════════════════════════════════
-// 📦 PLACEHOLDER — NotificationService
+// 📬 NOTIFICATION SERVICE — Firebase Cloud Messaging
+// ════════════════════════════════════════════════════════════════════════════
 //
-// File ini adalah PLACEHOLDER untuk layanan notifikasi push berbasis Firebase.
-// Sebelum menggunakan, tambahkan dependensi berikut ke pubspec.yaml:
+// Handles:
+// - Push notifications via Firebase Cloud Messaging
+// - Local notifications for reminders
+// - Topic subscriptions for targeted notifications
 //
-//   dependencies:
-//     firebase_core: ^2.x.x
-//     firebase_messaging: ^14.x.x
-//     flutter_local_notifications: ^16.x.x
-//
-// Langkah setup:
-//   1. Buat project di Firebase Console → tambahkan app Android/iOS
-//   2. Download & letakkan google-services.json  → android/app/
-//   3. Download & letakkan GoogleService-Info.plist → ios/Runner/
-//   4. Jalankan: flutterfire configure
-//   5. Ganti semua blok PLACEHOLDER di bawah dengan implementasi nyata
-//
-// Lihat dokumentasi resmi:
-//   https://firebase.flutter.dev/docs/messaging/overview
-//   https://pub.dev/packages/flutter_local_notifications
+// Setup:
+// 1. Create Firebase project at https://console.firebase.google.com
+// 2. Add Android/iOS apps
+// 3. Download google-services.json (Android) → android/app/
+// 4. Download GoogleService-Info.plist (iOS) → ios/Runner/
+// 5. Run: flutterfire configure
 // ════════════════════════════════════════════════════════════════════════════
 
-/// Layanan notifikasi push berbasis Firebase untuk Study Buddy.
-///
-/// Gunakan singleton [NotificationService.instance] di seluruh aplikasi,
-/// lalu panggil [initialize] sekali saat startup (biasanya di `main()`).
-///
-/// ```dart
-/// await NotificationService.instance.initialize();
-/// ```
-class NotificationService {
-  // ── Singleton ──────────────────────────────────────────────────────────────
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
-  NotificationService._internal();
+/// Firebase options placeholder.
+///
+/// After running `flutterfire configure`, import the generated file:
+/// ```dart
+/// import 'firebase_options.dart';
+/// ```
+/// Then use:
+/// ```dart
+/// await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+/// ```
+class FirebaseOptionsPlaceholder {
+  static const bool isConfigured = false;
+}
+
+/// Notification Service for Study Buddy.
+///
+/// Manages push notifications and local alerts for:
+/// - Quiz reminders
+/// - Leaderboard updates
+/// - Study schedule notifications
+/// - AI tutor responses
+class NotificationService {
+  final FirebaseMessaging _messaging;
+  final FlutterLocalNotificationsPlugin _localNotifications;
+
+  bool _initialized = false;
+
+  NotificationService._internal()
+    : _messaging = FirebaseMessaging.instance,
+      _localNotifications = FlutterLocalNotificationsPlugin();
 
   static final NotificationService _instance = NotificationService._internal();
 
   /// Global singleton accessor.
   static NotificationService get instance => _instance;
 
-  // ── Internal state ────────────────────────────────────────────────────────
-
-  bool _initialized = false;
-
-  // ── Public API ────────────────────────────────────────────────────────────
-
-  /// Inisialisasi Firebase Messaging dan Flutter Local Notifications.
+  /// Initialize Firebase and local notifications.
   ///
-  /// Panggil sekali di `main()` setelah [WidgetsFlutterBinding.ensureInitialized].
+  /// Call once in main() after WidgetsFlutterBinding.ensureInitialized().
   Future<void> initialize() async {
     if (_initialized) return;
 
-    // ════════════════════════════════════════════════════════════
-    // 🔌 PLACEHOLDER — Ganti dengan implementasi nyata
-    // TODO: Inisialisasi Firebase
-    //   1. await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-    //   2. final messaging = FirebaseMessaging.instance;
-    //   3. Daftarkan handler:
-    //      - FirebaseMessaging.onMessage.listen(_onForegroundMessage);
-    //      - FirebaseMessaging.onMessageOpenedApp.listen(_onMessageOpenedApp);
-    //      - FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-    //   4. Inisialisasi FlutterLocalNotificationsPlugin
-    //      - InitializationSettings(android: ..., iOS: ...)
-    // TODO: Hapus simulasi di bawah setelah backend Firebase tersedia
-    // ════════════════════════════════════════════════════════════
-    await Future.delayed(const Duration(milliseconds: 200)); // simulate init
-    _initialized = true;
-    // ignore: avoid_print
-    print(
-      '[NotificationService] ⚠️  Running in PLACEHOLDER mode — '
-      'Firebase NOT initialised. '
-      'Add firebase_core, firebase_messaging, flutter_local_notifications '
-      'to pubspec.yaml and replace this stub.',
-    );
+    try {
+      // Initialize Firebase (if not already initialized)
+      if (Firebase.apps.isEmpty) {
+        if (FirebaseOptionsPlaceholder.isConfigured) {
+          // Uncomment after running flutterfire configure:
+          // await Firebase.initializeApp(
+          //   options: DefaultFirebaseOptions.currentPlatform,
+          // );
+          debugPrint('[NotificationService] Firebase initialized');
+        } else {
+          debugPrint(
+            '[NotificationService] ⚠️ Firebase not configured. '
+            'Run: flutterfire configure',
+          );
+          _initialized = true;
+          return;
+        }
+      }
+
+      // Request notification permissions
+      await requestPermission();
+
+      // Initialize local notifications
+      await _initLocalNotifications();
+
+      // Set up message handlers
+      _setupMessageHandlers();
+
+      // Get FCM token for backend registration
+      final token = await _messaging.getToken();
+      debugPrint('[NotificationService] FCM Token: $token');
+
+      _initialized = true;
+    } catch (e) {
+      debugPrint('[NotificationService] Initialization error: $e');
+    }
   }
 
-  /// Meminta izin notifikasi dari OS (wajib untuk iOS, direkomendasikan Android 13+).
-  ///
-  /// Mengembalikan `true` jika izin diberikan, `false` jika ditolak.
+  /// Request notification permissions (required for iOS, recommended for Android 13+).
   Future<bool> requestPermission() async {
-    // ════════════════════════════════════════════════════════════
-    // 🔌 PLACEHOLDER — Ganti dengan implementasi nyata
-    // TODO: Panggil FirebaseMessaging.instance.requestPermission(
-    //   alert: true,
-    //   badge: true,
-    //   sound: true,
-    // );
-    // Kembalikan:
-    //   settings.authorizationStatus == AuthorizationStatus.authorized ||
-    //   settings.authorizationStatus == AuthorizationStatus.provisional
-    // TODO: Hapus mock di bawah setelah backend tersedia
-    // ════════════════════════════════════════════════════════════
-    await Future.delayed(const Duration(milliseconds: 100)); // simulate request
-    // ignore: avoid_print
-    print(
-      '[NotificationService] ⚠️  requestPermission() — PLACEHOLDER, returning true',
-    );
-    return true;
+    try {
+      final settings = await _messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+        announcement: false,
+        carPlay: false,
+        criticalAlert: false,
+      );
+
+      final authorized =
+          settings.authorizationStatus == AuthorizationStatus.authorized ||
+          settings.authorizationStatus == AuthorizationStatus.provisional;
+
+      debugPrint('[NotificationService] Permission granted: $authorized');
+      return authorized;
+    } catch (e) {
+      debugPrint('[NotificationService] Permission request error: $e');
+      return false;
+    }
   }
 
-  /// Berlangganan ke topik Firebase Messaging tertentu.
+  /// Subscribe to a topic for targeted notifications.
   ///
-  /// Contoh topik: `'all_users'`, `'quiz_reminders'`, `'leaderboard_updates'`.
+  /// Topics: 'all_users', 'quiz_reminders', 'leaderboard_updates', 'study_tips'
   Future<void> subscribeToTopic(String topic) async {
-    // ════════════════════════════════════════════════════════════
-    // 🔌 PLACEHOLDER — Ganti dengan implementasi nyata
-    // TODO: await FirebaseMessaging.instance.subscribeToTopic(topic);
-    // Pastikan topic hanya berisi karakter alfanumerik, '-', '_'
-    // Referensi: https://firebase.flutter.dev/docs/messaging/subscriptions
-    // TODO: Hapus mock di bawah setelah backend tersedia
-    // ════════════════════════════════════════════════════════════
-    await Future.delayed(const Duration(milliseconds: 50)); // simulate call
-    // ignore: avoid_print
-    print(
-      '[NotificationService] ⚠️  subscribeToTopic("$topic") — PLACEHOLDER, no-op',
-    );
+    try {
+      await _messaging.subscribeToTopic(topic);
+      debugPrint('[NotificationService] Subscribed to topic: $topic');
+    } catch (e) {
+      debugPrint('[NotificationService] Subscribe error: $e');
+    }
   }
 
-  /// Berhenti berlangganan dari topik Firebase Messaging tertentu.
+  /// Unsubscribe from a topic.
   Future<void> unsubscribeFromTopic(String topic) async {
-    // ════════════════════════════════════════════════════════════
-    // 🔌 PLACEHOLDER — Ganti dengan implementasi nyata
-    // TODO: await FirebaseMessaging.instance.unsubscribeFromTopic(topic);
-    // TODO: Hapus mock di bawah setelah backend tersedia
-    // ════════════════════════════════════════════════════════════
-    await Future.delayed(const Duration(milliseconds: 50)); // simulate call
-    // ignore: avoid_print
-    print(
-      '[NotificationService] ⚠️  unsubscribeFromTopic("$topic") — PLACEHOLDER, no-op',
-    );
+    try {
+      await _messaging.unsubscribeFromTopic(topic);
+      debugPrint('[NotificationService] Unsubscribed from topic: $topic');
+    } catch (e) {
+      debugPrint('[NotificationService] Unsubscribe error: $e');
+    }
   }
 
-  /// Tampilkan notifikasi lokal (tanpa server) — berguna untuk reminder jadwal.
-  ///
-  /// Parameter:
-  /// - [title]   : Judul notifikasi yang muncul di notification tray.
-  /// - [body]    : Isi pesan notifikasi.
-  /// - [payload] : Data opsional yang dikirim saat notifikasi di-tap.
+  /// Get FCM token for backend registration.
+  Future<String?> getFCMToken() async {
+    try {
+      return await _messaging.getToken();
+    } catch (e) {
+      debugPrint('[NotificationService] Get token error: $e');
+      return null;
+    }
+  }
+
+  /// Show a local notification (for reminders, alerts).
   Future<void> showLocalNotification({
     required String title,
     required String body,
     String? payload,
+    int? id,
+    String? channelId,
   }) async {
-    // ════════════════════════════════════════════════════════════
-    // 🔌 PLACEHOLDER — Ganti dengan implementasi nyata
-    // TODO: Gunakan FlutterLocalNotificationsPlugin:
-    //
-    //   const AndroidNotificationDetails androidDetails =
-    //       AndroidNotificationDetails(
-    //         'studybuddy_channel',    // channel ID
-    //         'Study Buddy Alerts',    // channel name
-    //         importance: Importance.high,
-    //         priority: Priority.high,
-    //       );
-    //   const NotificationDetails details =
-    //       NotificationDetails(android: androidDetails);
-    //
-    //   await _localNotifications.show(
-    //     DateTime.now().millisecondsSinceEpoch ~/ 1000,
-    //     title,
-    //     body,
-    //     details,
-    //     payload: payload,
-    //   );
-    //
-    // TODO: Hapus mock di bawah setelah flutter_local_notifications ditambahkan
-    // ════════════════════════════════════════════════════════════
-    await Future.delayed(const Duration(milliseconds: 50)); // simulate show
-    // ignore: avoid_print
-    print(
-      '[NotificationService] ⚠️  showLocalNotification() — PLACEHOLDER\n'
-      '  title  : $title\n'
-      '  body   : $body\n'
-      '  payload: $payload',
-    );
+    try {
+      const androidDetails = AndroidNotificationDetails(
+        'studybuddy_channel',
+        'Study Buddy Alerts',
+        channelDescription: 'Notifications for quiz, schedule, and updates',
+        importance: Importance.high,
+        priority: Priority.high,
+        showWhen: true,
+        icon: '@mipmap/ic_notification',
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      await _localNotifications.show(
+        id ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title,
+        body,
+        details,
+        payload: payload,
+      );
+
+      debugPrint('[NotificationService] Local notification shown: $title');
+    } catch (e) {
+      debugPrint('[NotificationService] Show notification error: $e');
+    }
   }
+
+  /// Schedule a notification for a specific time (for study reminders).
+  Future<void> scheduleNotification({
+    required String title,
+    required String body,
+    required DateTime scheduledDate,
+    String? payload,
+    int? id,
+    String? channelId,
+  }) async {
+    try {
+      const androidDetails = AndroidNotificationDetails(
+        'studybuddy_reminders',
+        'Study Reminders',
+        channelDescription: 'Scheduled study session reminders',
+        importance: Importance.high,
+        priority: Priority.high,
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      );
+
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+      );
+
+      await _localNotifications.zonedSchedule(
+        id ?? DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title,
+        body,
+        scheduledDate,
+        details,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.absoluteTime,
+        payload: payload,
+      );
+
+      debugPrint(
+        '[NotificationService] Notification scheduled for: $scheduledDate',
+      );
+    } catch (e) {
+      debugPrint('[NotificationService] Schedule notification error: $e');
+    }
+  }
+
+  /// Cancel a specific notification by ID.
+  Future<void> cancelNotification(int id) async {
+    try {
+      await _localNotifications.cancel(id);
+      debugPrint('[NotificationService] Notification cancelled: $id');
+    } catch (e) {
+      debugPrint('[NotificationService] Cancel notification error: $e');
+    }
+  }
+
+  /// Cancel all pending notifications.
+  Future<void> cancelAllNotifications() async {
+    try {
+      await _localNotifications.cancelAll();
+      debugPrint('[NotificationService] All notifications cancelled');
+    } catch (e) {
+      debugPrint('[NotificationService] Cancel all error: $e');
+    }
+  }
+
+  /// Initialize local notification settings.
+  Future<void> _initLocalNotifications() async {
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
+    const iosSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
+    const settings = InitializationSettings(
+      android: androidSettings,
+      iOS: iosSettings,
+    );
+
+    await _localNotifications.initialize(
+      settings,
+      onDidReceiveNotificationResponse: _onNotificationTapped,
+    );
+
+    // Create notification channels for Android
+    await _createNotificationChannels();
+  }
+
+  /// Create Android notification channels.
+  Future<void> _createNotificationChannels() async {
+    const quizChannel = AndroidNotificationChannel(
+      'studybuddy_channel',
+      'Study Buddy Alerts',
+      description: 'Notifications for quiz, schedule, and updates',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    const reminderChannel = AndroidNotificationChannel(
+      'studybuddy_reminders',
+      'Study Reminders',
+      description: 'Scheduled study session reminders',
+      importance: Importance.high,
+      playSound: true,
+      enableVibration: true,
+    );
+
+    final channelGroup = AndroidNotificationChannelGroup(
+      'studybuddy_group',
+      'Study Buddy',
+    );
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannelGroup(channelGroup);
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(quizChannel);
+
+    await _localNotifications
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(reminderChannel);
+  }
+
+  /// Handle notification tap when app is in foreground.
+  void _onNotificationTapped(NotificationResponse response) {
+    debugPrint(
+      '[NotificationService] Notification tapped: ${response.payload}',
+    );
+    // TODO: Implement navigation based on payload
+    // Example: Navigate to quiz screen, schedule screen, etc.
+  }
+
+  /// Set up Firebase Messaging handlers.
+  void _setupMessageHandlers() {
+    // Foreground message handler
+    FirebaseMessaging.onMessage.listen(_onForegroundMessage);
+
+    // Handle when user taps on notification while app is in background
+    FirebaseMessaging.onMessageOpenedApp.listen(_onMessageOpenedApp);
+
+    // Check if app was opened from a notification (cold start)
+    _checkInitialMessage();
+  }
+
+  /// Handle foreground messages.
+  Future<void> _onForegroundMessage(RemoteMessage message) async {
+    debugPrint('[NotificationService] Foreground message: ${message.data}');
+
+    if (message.notification != null) {
+      await showLocalNotification(
+        title: message.notification!.title ?? 'Study Buddy',
+        body: message.notification!.body ?? '',
+        payload: message.data.toString(),
+      );
+    }
+  }
+
+  /// Handle message opened from background.
+  void _onMessageOpenedApp(RemoteMessage message) {
+    debugPrint('[NotificationService] Message opened app: ${message.data}');
+    // TODO: Implement navigation based on message data
+  }
+
+  /// Check if app was started from a notification.
+  Future<void> _checkInitialMessage() async {
+    final message = await _messaging.getInitialMessage();
+    if (message != null) {
+      debugPrint('[NotificationService] Initial message: ${message.data}');
+      // TODO: Implement navigation based on initial message
+    }
+  }
+
+  /// Check if initialized (for debugging).
+  bool get isInitialized => _initialized;
+}
+
+/// Background message handler (must be top-level function).
+@pragma('vm:entry-point')
+Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  debugPrint('[NotificationService] Background message: ${message.data}');
+  // Note: Can't use instance methods here, need separate Firebase init
 }

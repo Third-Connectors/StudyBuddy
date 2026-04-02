@@ -1,56 +1,82 @@
 // ════════════════════════════════════════════════════════════════════════════
-// 🔑 API CONFIGURATION
+// 🔑 API CONFIGURATION — Study Buddy Blueprint Implementation
 // ════════════════════════════════════════════════════════════════════════════
 //
-// ⚠️ IMPORTANT: Configure your API keys and endpoints below
-//
-// This file contains all the configuration needed to connect Study Buddy
-// to your backend services and third-party APIs.
+// Architecture: NestJS (API Gateway) + FastAPI (ML Service)
+// Databases: PostgreSQL (User Data) + MongoDB (Content) + Redis (Cache)
+// LLM Provider: Google Gemini
 //
 // ════════════════════════════════════════════════════════════════════════════
 
 /// API Configuration for Study Buddy
 ///
-/// Configure your backend endpoints and API keys here.
+/// Blueprint-compliant configuration for:
+/// - NestJS API Gateway
+/// - Python FastAPI ML Service
+/// - Google Gemini LLM
+/// - PostgreSQL, MongoDB, Redis
 abstract final class ApiConfig {
-  // ── Backend API ────────────────────────────────────────────────────────────
+  // ── Backend API Gateway (NestJS) ──────────────────────────────────────────
 
-  /// 🔌 TODO: Replace with your actual backend API URL
+  /// 🌐 NestJS API Gateway Base URL
   ///
-  /// Example: 'https://api.studybuddy.id/v1'
-  ///          'https://your-domain.com/api'
-  static const String baseUrl = 'https://your-api.studybuddy.id/v1';
+  /// Development: Use local IP or localhost
+  /// Production: Deploy to cloud (GCP, AWS, Azure, Railway, Render)
+  static const String baseUrl = 'http://192.168.1.100:3000/api/v1';
 
-  /// API Key header name (if required by your backend)
+  /// API Key header name for backend authentication
   static const String apiKeyHeader = 'X-API-Key';
 
-  /// 🔌 TODO: Add your API key here if your backend requires one
+  /// Backend API Key (optional, for rate limiting & analytics)
+  /// Leave empty if not using API key authentication
+  static const String apiKey = '';
+
+  // ── ML Service (Python FastAPI) ───────────────────────────────────────────
+
+  /// 🤖 ML Service Base URL (FastAPI)
   ///
-  /// Get this from your backend's admin panel or environment variables
-  static const String apiKey = ''; // ⚠️ PLACEHOLDER - Add your API key
+  /// This service handles:
+  /// - VAK Classification (KNN Model)
+  /// - Schedule Optimization (Genetic Algorithm)
+  /// - AI Tutor prompt processing
+  static const String mlServiceUrl = 'http://192.168.1.100:8000/api/v1';
 
   // ── Google Gemini API ─────────────────────────────────────────────────────
 
-  /// 🔌 TODO: Add your Google Gemini API key
+  /// 🔑 Google Gemini API Key
   ///
   /// Get your API key from: https://makersuite.google.com/app/apikey
   ///
-  /// This is used for:
-  /// - Socratic Tutor chat
-  /// - Schedule OCR processing
-  /// - AI-powered content generation
-  static const String geminiApiKey = ''; // ⚠️ PLACEHOLDER - Add Gemini API key
+  /// ⚠️ SECURITY: In production, route through backend to hide this key
+  static const String geminiApiKey = 'AIzaSyB-ldUVNrHndQ84LblWey6kg7fZxGAglOk';
 
   /// Gemini API base URL
   static const String geminiBaseUrl =
       'https://generativelanguage.googleapis.com/v1beta';
 
-  /// Gemini model to use for Socratic Tutor
-  /// Options: 'gemini-pro', 'gemini-1.5-pro', 'gemini-1.5-flash'
+  /// Gemini model for Socratic Tutor (text-based)
+  /// Recommended: gemini-1.5-flash for speed & cost efficiency
   static const String geminiModel = 'gemini-1.5-flash';
 
-  /// Gemini model for Vision/OCR tasks
+  /// Gemini model for Vision/OCR tasks (schedule scanner, image analysis)
   static const String geminiVisionModel = 'gemini-1.5-flash';
+
+  /// Socratic Tutor System Prompt (Kurikulum Merdeka/K13 context)
+  static const String socraticPrompt =
+      '''You are a Socratic Tutor for Indonesian high school students (SMA/MA/SMK).
+
+RULES:
+1. NEVER give the answer directly
+2. Ask leading questions to guide students
+3. Use Indonesian language (Bahasa Indonesia)
+4. Context: Kurikulum Merdeka & K13 curriculum
+5. Be encouraging and friendly
+6. If student is stuck, break down the problem into smaller steps
+7. Relate concepts to real-life examples when possible
+
+SUBJECTS: Matematika, Fisika, Kimia, Biologi, Bahasa Indonesia,
+          Bahasa Inggris, Sejarah, Geografi, Sosiologi, Ekonomi,
+          PKN, Agama, Olahraga, Seni Budaya, TIK''';
 
   // ── Firebase Configuration ────────────────────────────────────────────────
 
