@@ -7,7 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/custom_text_form_field.dart';
 import '../data/auth_providers.dart';
-import '../domain/models/auth_model.dart';
+import '../data/repositories/auth_repository.dart';
+import '../../../core/services/auth_service.dart';
 
 /// Login screen for Study Buddy.
 ///
@@ -33,6 +34,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
+  bool _isLoading = false;
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -49,14 +51,32 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     setState(() => _obscurePassword = !_obscurePassword);
   }
 
-  void _onLoginPressed() {
+  void _onLoginPressed() async {
     // Dismiss keyboard before processing
     FocusScope.of(context).unfocus();
 
     if (_formKey.currentState?.validate() ?? false) {
-      ref
-          .read(authProvider.notifier)
-          .login(_emailController.text.trim(), _passwordController.text);
+      setState(() => _isLoading = true);
+
+      try {
+        final authRepo = ref.read(authRepositoryProvider);
+        await authRepo.login(
+          _emailController.text.trim(),
+          _passwordController.text,
+        );
+
+        // Navigate to home on success
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
+        }
+      } catch (e) {
+        // Show error
+        _showErrorSnackBar(e.toString());
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
 
@@ -113,24 +133,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authProvider);
     final screenHeight = MediaQuery.of(context).size.height;
-
-    // ── Side-effects: react to auth state transitions ──────────────────────
-    ref.listen<AuthState>(authProvider, (previous, next) {
-      if (next.status == AuthStatus.authenticated) {
-        Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
-      } else if (next.status == AuthStatus.error &&
-          next.errorMessage != null &&
-          previous?.status != AuthStatus.error) {
-        // Strip "Exception: " prefix that Dart adds automatically
-        final raw = next.errorMessage!;
-        final message = raw.startsWith('Exception: ')
-            ? raw.substring('Exception: '.length)
-            : raw;
-        _showErrorSnackBar(message);
-      }
-    });
 
     return Scaffold(
       backgroundColor: AppColors.surfaceWhite,
@@ -219,7 +222,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: authState.isLoading
+                    onPressed: _isLoading
                         ? null
                         : () {
                             // TODO: Navigate to ForgotPasswordScreen when created
@@ -268,7 +271,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 SizedBox(
                   height: 52,
                   child: ElevatedButton(
-                    onPressed: authState.isLoading ? null : _onLoginPressed,
+                    onPressed: _isLoading ? null : _onLoginPressed,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.darkGreen,
                       disabledBackgroundColor: AppColors.darkGreen.withValues(
@@ -281,7 +284,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 200),
-                      child: authState.isLoading
+                      child: _isLoading
                           ? const SizedBox(
                               key: ValueKey('loader'),
                               width: 22,
@@ -319,7 +322,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       ),
                     ),
                     GestureDetector(
-                      onTap: authState.isLoading
+                      onTap: _isLoading
                           ? null
                           : () {
                               Navigator.pushNamedAndRemoveUntil(
@@ -333,7 +336,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         style: GoogleFonts.nunito(
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
-                          color: authState.isLoading
+                          color: _isLoading
                               ? AppColors.primaryOrange.withValues(alpha: 0.45)
                               : AppColors.primaryOrange,
                           decoration: TextDecoration.underline,

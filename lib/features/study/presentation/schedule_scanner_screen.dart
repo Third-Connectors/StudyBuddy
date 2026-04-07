@@ -364,7 +364,7 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
                     style: TextStyle(color: Colors.grey[600]),
                   ),
                 ] else if (state.ocrResult != null) ...[
-                  _buildExtractedSchedules(state.ocrResult!),
+                  _buildExtractedSchedules(state, state.ocrResult!),
                 ] else ...[
                   const Icon(
                     Icons.document_scanner,
@@ -388,7 +388,7 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
                       onPressed: () => ref
                           .read(scheduleNotifierProvider.notifier)
                           .processImage(),
-                      icon: const Icon(Icons.scan),
+                      icon: const Icon(Icons.document_scanner),
                       label: const Text('Proses Gambar'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.all(16),
@@ -404,7 +404,7 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
     );
   }
 
-  Widget _buildExtractedSchedules(OcrResult result) {
+  Widget _buildExtractedSchedules(ScheduleState state, OcrResult result) {
     return Column(
       children: [
         const Text(

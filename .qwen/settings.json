@@ -3,7 +3,10 @@
     "allow": [
       "Bash(flutter *)",
       "Bash(del *)",
-      "Bash(mkdir *)"
+      "Bash(mkdir *)",
+      "Bash(findstr *)",
+      "Bash(powershell *)",
+      "Bash(sed *)"
     ]
   },
   "$version": 3

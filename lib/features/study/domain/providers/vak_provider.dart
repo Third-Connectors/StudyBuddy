@@ -109,7 +109,10 @@ class VakNotifier extends StateNotifier<VakState> {
       // Get current user ID (mock for now)
       final user = await _authRepository.getProfile();
 
-      final result = await _vakRepository.submitAnswers(user.id, state.answers);
+      final result = await _vakRepository.submitAnswers(
+        userId: user.id,
+        answers: state.answers,
+      );
 
       state = state.copyWith(result: result, isSubmitting: false);
     } catch (e) {

@@ -147,12 +147,14 @@ class ApiClient {
     String path,
     Map<String, dynamic>? body, {
     Map<String, String>? headers,
+    Map<String, dynamic>? queryParameters,
     bool multipart = false,
   }) async {
     try {
       final response = await _dio.post(
         path,
         data: multipart ? FormData.fromMap(body ?? {}) : body,
+        queryParameters: queryParameters,
         options: Options(
           headers: headers,
           contentType: multipart ? 'multipart/form-data' : 'application/json',

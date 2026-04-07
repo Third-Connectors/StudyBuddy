@@ -108,6 +108,7 @@ class VakResult extends Equatable {
   final double visualScore;
   final double auditoryScore;
   final double kinestheticScore;
+  final double confidence;
   final DateTime completedAt;
   final List<VakAnswer> answers;
 
@@ -117,6 +118,7 @@ class VakResult extends Equatable {
     required this.visualScore,
     required this.auditoryScore,
     required this.kinestheticScore,
+    this.confidence = 0.0,
     required this.completedAt,
     required this.answers,
   });
@@ -131,6 +133,7 @@ class VakResult extends Equatable {
       visualScore: (json['visualScore'] as num).toDouble(),
       auditoryScore: (json['auditoryScore'] as num).toDouble(),
       kinestheticScore: (json['kinestheticScore'] as num).toDouble(),
+      confidence: (json['confidence'] as num?)?.toDouble() ?? 0.0,
       completedAt: DateTime.parse(json['completedAt'] as String),
       answers: (json['answers'] as List<dynamic>)
           .map((e) => VakAnswer.fromJson(e as Map<String, dynamic>))
@@ -145,6 +148,7 @@ class VakResult extends Equatable {
       'visualScore': visualScore,
       'auditoryScore': auditoryScore,
       'kinestheticScore': kinestheticScore,
+      'confidence': confidence,
       'completedAt': completedAt.toIso8601String(),
       'answers': answers.map((e) => e.toJson()).toList(),
     };
@@ -156,6 +160,7 @@ class VakResult extends Equatable {
     double? visualScore,
     double? auditoryScore,
     double? kinestheticScore,
+    double? confidence,
     DateTime? completedAt,
     List<VakAnswer>? answers,
   }) {
@@ -165,6 +170,7 @@ class VakResult extends Equatable {
       visualScore: visualScore ?? this.visualScore,
       auditoryScore: auditoryScore ?? this.auditoryScore,
       kinestheticScore: kinestheticScore ?? this.kinestheticScore,
+      confidence: confidence ?? this.confidence,
       completedAt: completedAt ?? this.completedAt,
       answers: answers ?? this.answers,
     );
@@ -177,6 +183,7 @@ class VakResult extends Equatable {
     visualScore,
     auditoryScore,
     kinestheticScore,
+    confidence,
     completedAt,
     answers,
   ];

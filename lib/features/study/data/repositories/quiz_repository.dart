@@ -13,11 +13,13 @@
 // ════════════════════════════════════════════════════════════════════════════
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/quiz_model.dart';
 import '../../../profile/data/models/profile_model.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/api_config.dart';
+import '../../../../core/providers/api_providers.dart';
 
 /// Repository for Quiz operations.
 class QuizRepository {

@@ -1,9 +1,27 @@
 // ════════════════════════════════════════════════════════════════════════════
-// Auth Providers - Re-exports
+// ⚡ SUPABASE CONFIGURATION
 // ════════════════════════════════════════════════════════════════════════════
 //
-// This file re-exports providers from auth_repository.dart for convenience.
-// Use these providers in your UI widgets.
+// ⚠️ PENTING: GANTI 2 VALUE INI SEBELUM RUN APP!
+//
+// Cara dapat:
+// 1. Buka https://supabase.com/dashboard
+// 2. Pilih project kamu
+// 3. Settings (⚙️) → API
+// 4. Copy Project URL & anon/public key
 // ════════════════════════════════════════════════════════════════════════════
 
-export 'repositories/auth_repository.dart' show authRepositoryProvider;
+/// Supabase Configuration
+abstract final class SupabaseConfig {
+  /// ⚡ Supabase Project URL
+  ///
+  /// ⚠️ GANTI dengan URL project kamu!
+  /// Contoh: 'https://xxxxxxxxxxxxx.supabase.co'
+  static const String url = 'https://YOUR_PROJECT_ID.supabase.co';
+
+  /// ⚡ Supabase Anon/Public Key
+  ///
+  /// ⚠️ GANTI dengan anon key kamu!
+  /// Contoh: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'
+  static const String anonKey = 'YOUR_ANON_KEY';
+}

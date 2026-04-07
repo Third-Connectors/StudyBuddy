@@ -1,88 +1,64 @@
 // ════════════════════════════════════════════════════════════════════════════
-// 🔐 AUTH REPOSITORY — NestJS API Gateway Integration
+// 🔐 AUTH REPOSITORY — Supabase Authentication
 // ════════════════════════════════════════════════════════════════════════════
 //
-// Handles authentication with NestJS backend:
-// - Login/Register with JWT tokens
+// Handles authentication with Supabase:
+// - Email/Password login & registration
 // - Profile management
-// - Token refresh
+// - Session management
 // - Password reset
 //
-// Backend: NestJS API Gateway with PostgreSQL
-// Security: JWT tokens, bcrypt password hashing
+// Backend: Supabase Auth (PostgreSQL + Auto-generated APIs)
 // ════════════════════════════════════════════════════════════════════════════
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/user_model.dart';
-import '../../../../core/network/api_client.dart';
-import '../../../../core/constants/api_config.dart';
-import '../../../../core/services/auth_service.dart';
+import '../../../../core/providers/supabase_provider.dart';
 
-/// Authentication repository for handling user auth operations.
-///
-/// Communicates with NestJS API Gateway for:
-/// - User registration and login
-/// - Profile management
-/// - Token refresh and logout
+/// Authentication repository for Supabase.
 class AuthRepository {
-  final ApiClient _apiClient;
-  final AuthService _authService;
+  final SupabaseClient _supabase;
 
-  AuthRepository(this._apiClient, AuthService? authService)
-    : _authService = authService ?? AuthService();
+  AuthRepository(this._supabase);
 
   /// Login with email and password.
   ///
-  /// Returns [User] object and saves JWT tokens to secure storage.
-  ///
-  /// Backend: POST /auth/login
-  /// Response: { user: {...}, accessToken: "...", refreshToken: "..." }
+  /// Supabase: POST /auth/v1/token
   Future<User> login(String email, String password) async {
     try {
-      final response = await _apiClient.post(ApiEndpoints.login, {
-        'email': email,
-        'password': password,
-      });
+      final response = await _supabase.auth.signInWithPassword(
+        email: email.trim(),
+        password: password,
+      );
 
-      // Extract tokens and user data
-      final accessToken = response['accessToken'] as String?;
-      final refreshToken = response['refreshToken'] as String?;
-      final userData = response['user'] as Map<String, dynamic>?;
-
-      if (accessToken == null || userData == null) {
-        throw ApiException(
-          message: 'Invalid response from server',
-          details: 'Missing accessToken or user data',
-        );
+      if (response.user == null) {
+        throw const AuthException('Login failed - no user returned');
       }
 
-      // Save tokens to secure storage
-      await _authService.saveTokens(
-        accessToken: accessToken,
-        refreshToken: refreshToken ?? '',
-        userId: userData['id'] as String?,
-      );
+      // Fetch profile data
+      final profileData = await _supabase
+          .from('profiles')
+          .select()
+          .eq('id', response.user!.id)
+          .single();
 
-      // Update API client with new token
-      _apiClient.setAuthToken(accessToken);
-
-      return User.fromJson(userData);
-    } on ApiException {
-      rethrow;
+      return User.fromJson(profileData);
+    } on AuthException catch (e) {
+      debugPrint('[AuthRepository] Login error: ${e.message}');
+      throw Exception('Login failed: ${e.message}');
     } catch (e) {
       debugPrint('[AuthRepository] Login error: $e');
-      throw ApiException(
-        message: 'Login failed. Please check your credentials.',
-        details: e.toString(),
-      );
+      throw Exception('Login failed: $e');
     }
   }
 
   /// Register a new user.
   ///
-  /// Backend: POST /auth/register
-  /// Response: { user: {...}, accessToken: "...", refreshToken: "..." }
+  /// Supabase: POST /auth/v1/signup
+  /// Auto-creates profile via trigger
   Future<User> register({
     required String name,
     required String email,
@@ -91,216 +67,146 @@ class AuthRepository {
     String? gradeLevel,
   }) async {
     try {
-      final response = await _apiClient.post(ApiEndpoints.register, {
-        'name': name,
-        'email': email,
-        'password': password,
-        'schoolName': schoolName,
-        'gradeLevel': gradeLevel,
-      });
+      final response = await _supabase.auth.signUp(
+        email: email.trim(),
+        password: password,
+        data: {
+          'name': name,
+          'school_name': schoolName,
+          'grade_level': gradeLevel,
+        },
+      );
 
-      final accessToken = response['accessToken'] as String?;
-      final refreshToken = response['refreshToken'] as String?;
-      final userData = response['user'] as Map<String, dynamic>?;
-
-      if (accessToken == null || userData == null) {
-        throw ApiException(
-          message: 'Invalid response from server',
-          details: 'Missing accessToken or user data',
-        );
+      if (response.user == null) {
+        throw const AuthException('Registration failed - no user returned');
       }
 
-      await _authService.saveTokens(
-        accessToken: accessToken,
-        refreshToken: refreshToken ?? '',
-        userId: userData['id'] as String?,
-      );
+      // Wait a moment for trigger to create profile
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      _apiClient.setAuthToken(accessToken);
+      // Fetch profile
+      final profileData = await _supabase
+          .from('profiles')
+          .select()
+          .eq('id', response.user!.id)
+          .single();
 
-      return User.fromJson(userData);
-    } on ApiException {
-      rethrow;
+      return User.fromJson(profileData);
+    } on AuthException catch (e) {
+      debugPrint('[AuthRepository] Register error: ${e.message}');
+      throw Exception('Registration failed: ${e.message}');
     } catch (e) {
       debugPrint('[AuthRepository] Register error: $e');
-      throw ApiException(
-        message: 'Registration failed. Please try again.',
-        details: e.toString(),
-      );
+      throw Exception('Registration failed: $e');
     }
   }
 
   /// Logout the current user.
-  ///
-  /// Backend: POST /auth/logout
-  /// Clears tokens from secure storage.
   Future<void> logout() async {
     try {
-      // Call backend to invalidate token
-      await _apiClient.post(ApiEndpoints.logout, null);
+      await _supabase.auth.signOut();
     } catch (e) {
-      debugPrint('[AuthRepository] Logout backend error: $e');
-      // Continue with local logout even if backend fails
-    } finally {
-      // Always clear local tokens
-      await _authService.clearTokens();
-      _apiClient.clearAuthToken();
+      debugPrint('[AuthRepository] Logout error: $e');
     }
   }
 
   /// Get current user profile.
-  ///
-  /// Backend: GET /user/profile
-  /// Requires valid JWT token.
   Future<User> getProfile() async {
     try {
-      final response = await _apiClient.get(ApiEndpoints.profile);
-      final userData = response['user'] as Map<String, dynamic>?;
-
-      if (userData == null) {
-        throw ApiException(
-          message: 'Profile not found',
-          details: 'User data is null',
-        );
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('No authenticated user');
       }
 
-      return User.fromJson(userData);
-    } on ApiException {
-      rethrow;
+      final profileData = await _supabase
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .single();
+
+      return User.fromJson(profileData);
     } catch (e) {
       debugPrint('[AuthRepository] Get profile error: $e');
-      throw ApiException(
-        message: 'Failed to load profile',
-        details: e.toString(),
-      );
+      throw Exception('Failed to load profile: $e');
     }
   }
 
   /// Update user profile.
-  ///
-  /// Backend: PUT /user/profile
   Future<User> updateProfile({
     String? name,
     String? schoolName,
     String? gradeLevel,
     String? profileImageUrl,
+    String? learningStyle,
   }) async {
     try {
-      final response = await _apiClient.put(ApiEndpoints.updateProfile, {
-        if (name != null) 'name': name,
-        if (schoolName != null) 'schoolName': schoolName,
-        if (gradeLevel != null) 'gradeLevel': gradeLevel,
-        if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
-      });
-
-      final userData = response['user'] as Map<String, dynamic>?;
-
-      if (userData == null) {
-        throw ApiException(
-          message: 'Invalid response from server',
-          details: 'User data is null after update',
-        );
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('No authenticated user');
       }
 
-      return User.fromJson(userData);
-    } on ApiException {
-      rethrow;
+      final updates = <String, dynamic>{
+        if (name != null) 'name': name,
+        if (schoolName != null) 'school_name': schoolName,
+        if (gradeLevel != null) 'grade_level': gradeLevel,
+        if (profileImageUrl != null) 'profile_image_url': profileImageUrl,
+        if (learningStyle != null) 'learning_style': learningStyle,
+      };
+
+      if (updates.isNotEmpty) {
+        await _supabase.from('profiles').update(updates).eq('id', user.id);
+      }
+
+      return await getProfile();
     } catch (e) {
       debugPrint('[AuthRepository] Update profile error: $e');
-      throw ApiException(
-        message: 'Failed to update profile',
-        details: e.toString(),
-      );
+      throw Exception('Failed to update profile: $e');
     }
   }
 
-  /// Forgot password - trigger password reset email.
-  ///
-  /// Backend: POST /auth/forgot-password
+  /// Forgot password - send password reset email.
   Future<void> forgotPassword(String email) async {
     try {
-      await _apiClient.post(ApiEndpoints.forgotPassword, {'email': email});
-    } on ApiException {
-      rethrow;
+      await _supabase.auth.resetPasswordForEmail(
+        email.trim(),
+        redirectTo: 'https://your-app.com/reset-password',
+      );
     } catch (e) {
       debugPrint('[AuthRepository] Forgot password error: $e');
-      throw ApiException(
-        message: 'Failed to send password reset email',
-        details: e.toString(),
-      );
+      throw Exception('Failed to send reset email: $e');
     }
   }
 
-  /// Refresh the access token using refresh token.
-  ///
-  /// Called automatically by ApiClient interceptor when 401 is received.
-  ///
-  /// Backend: POST /auth/refresh
-  Future<String> refreshToken() async {
+  /// Update password.
+  Future<void> updatePassword(String newPassword) async {
     try {
-      final refreshToken = await _authService.getRefreshToken();
-
-      if (refreshToken == null || refreshToken.isEmpty) {
-        throw ApiException(
-          message: 'No refresh token available',
-          details: 'User needs to log in again',
-        );
-      }
-
-      final response = await _apiClient.post(ApiEndpoints.refreshToken, {
-        'refreshToken': refreshToken,
-      });
-
-      final newAccessToken = response['accessToken'] as String?;
-      final newRefreshToken = response['refreshToken'] as String?;
-
-      if (newAccessToken == null) {
-        throw ApiException(
-          message: 'Invalid refresh response',
-          details: 'Missing accessToken',
-        );
-      }
-
-      // Save new tokens
-      await _authService.saveTokens(
-        accessToken: newAccessToken,
-        refreshToken: newRefreshToken ?? refreshToken,
-      );
-
-      _apiClient.setAuthToken(newAccessToken);
-
-      return newAccessToken;
-    } on ApiException {
-      // Clear tokens on refresh failure (session expired)
-      await _authService.clearTokens();
-      _apiClient.clearAuthToken();
-      rethrow;
+      await _supabase.auth.updateUser(UserAttributes(password: newPassword));
     } catch (e) {
-      debugPrint('[AuthRepository] Refresh token error: $e');
-      throw ApiException(
-        message: 'Session expired. Please log in again.',
-        details: e.toString(),
-      );
+      debugPrint('[AuthRepository] Update password error: $e');
+      throw Exception('Failed to update password: $e');
     }
   }
 
-  /// Check if user is currently authenticated.
+  /// Check if user is authenticated.
   Future<bool> isAuthenticated() async {
-    return await _authService.isAuthenticated();
+    return _supabase.auth.currentUser != null;
   }
 
-  /// Get stored user ID.
-  Future<String?> getUserId() async {
-    return await _authService.getUserId();
+  /// Get current user ID.
+  String? getUserId() {
+    return _supabase.auth.currentUser?.id;
   }
 
-  /// Get current access token (for API calls).
-  Future<String?> getAccessToken() async {
-    return await _authService.getAccessToken();
+  /// Get current user email.
+  String? getUserEmail() {
+    return _supabase.auth.currentUser?.email;
   }
+
+  /// Listen to auth state changes.
+  Stream<AuthState> get authStateChanges => _supabase.auth.onAuthStateChange;
 }
 
 /// Provider for the authentication repository.
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
-  return AuthRepository(ref.watch(apiClientProvider), authService);
+  return AuthRepository(ref.watch(supabaseClientProvider));
 });

@@ -295,7 +295,7 @@ class _VakAssessmentScreenState extends ConsumerState<VakAssessmentScreen> {
             Radio<String>(
               value: code,
               groupValue: selected,
-              onChanged: enabled ? onChanged : null,
+              onChanged: enabled ? (String? value) => onChanged(value!) : null,
             ),
           ],
         ),

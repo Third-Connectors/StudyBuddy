@@ -284,7 +284,7 @@ class HomeScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: ElevatedButton(
-              onPressed: () => _navigateToTab(2),
+              onPressed: () => _navigateToTab(context, 2),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: Theme.of(context).primaryColor,
