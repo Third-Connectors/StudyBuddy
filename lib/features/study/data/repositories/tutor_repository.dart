@@ -60,7 +60,7 @@ class TutorRepository {
 
       // Call Gemini API
       final response = await _geminiClient.post(
-        '/models/${ApiConfig.geminiModel}:generateContent',
+        'models/${ApiConfig.geminiModel}:generateContent',
         {
           'contents': [
             {
@@ -121,7 +121,7 @@ class TutorRepository {
 
       // Call Gemini Vision API
       final response = await _geminiClient.post(
-        '/models/${ApiConfig.geminiVisionModel}:generateContent',
+        'models/${ApiConfig.geminiVisionModel}:generateContent',
         {
           'contents': [
             {

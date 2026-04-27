@@ -39,6 +39,9 @@ class ScheduleRepository {
   final ApiClient _apiClient;
   final ApiClient _geminiClient;
   final ImagePicker _imagePicker;
+  
+  // Local cache to keep data when server is down
+  static final List<ScheduleEntry> _localCache = [];
 
   ScheduleRepository(this._apiClient, this._geminiClient)
     : _imagePicker = ImagePicker();
@@ -103,7 +106,7 @@ Catatan:
 
       // Call Gemini Vision API
       final response = await _geminiClient.post(
-        '/models/${ApiConfig.geminiVisionModel}:generateContent',
+        'models/${ApiConfig.geminiVisionModel}:generateContent',
         {
           'contents': [
             {
@@ -116,8 +119,8 @@ Catatan:
             },
           ],
           'generationConfig': {
-            'temperature': 0.3, // Lower temperature for accuracy
-            'maxOutputTokens': 2048,
+            'temperature': 0.1, // Even lower for structural JSON accuracy
+            'maxOutputTokens': 8192, // Increased for thinking/reasoning models
           },
         },
         queryParameters: {'key': ApiConfig.geminiApiKey},
@@ -166,17 +169,23 @@ Catatan:
     try {
       final response = await _apiClient.get(
         '${ApiEndpoints.schedule}?userId=$userId',
-      );
+      ).timeout(const Duration(seconds: 5)); // Fail fast!
 
       final schedules = response['schedules'] as List?;
-      if (schedules == null) return [];
+      if (schedules == null) return _localCache;
 
-      return schedules
+      final results = schedules
           .map((s) => ScheduleEntry.fromJson(s as Map<String, dynamic>))
           .toList();
+      
+      // Sync local cache with server data if available
+      _localCache.clear();
+      _localCache.addAll(results);
+      
+      return results;
     } catch (e) {
-      debugPrint('[ScheduleRepository] Get schedules error: $e');
-      return [];
+      debugPrint('[ScheduleRepository] Get schedules error (using local): $e');
+      return _localCache; // Kembalikan data lokal jika server timeout
     }
   }
 
@@ -184,21 +193,23 @@ Catatan:
   ///
   /// Backend: POST /schedule
   Future<ScheduleEntry> addSchedule(ScheduleEntry schedule) async {
+    // Selalu simpan ke lokal dulu
+    if (!_localCache.any((s) => s.id == schedule.id)) {
+      _localCache.add(schedule);
+    }
+
     try {
       final response = await _apiClient.post(
         ApiEndpoints.schedule,
         schedule.toJson(),
-      );
+      ).timeout(const Duration(seconds: 3)); // Fail fast!
 
       return ScheduleEntry.fromJson(
         response['schedule'] as Map<String, dynamic>,
       );
     } catch (e) {
-      debugPrint('[ScheduleRepository] Add schedule error: $e');
-      // Return local copy with generated ID
-      return schedule.copyWith(
-        id: 'sch_${DateTime.now().millisecondsSinceEpoch}',
-      );
+      debugPrint('[ScheduleRepository] Add schedule error (stored locally): $e');
+      return schedule;
     }
   }
 
@@ -326,15 +337,56 @@ Catatan:
   ///
   /// Simple parser - for production, use LLM to parse JSON.
   List<ScheduleEntry> _parseScheduleFromOCR(String rawText) {
-    final schedules = <ScheduleEntry>[];
+    try {
+      // 1. Extract JSON from markdown if present
+      String jsonStr = rawText;
+      if (rawText.contains('```json')) {
+        jsonStr = rawText.split('```json')[1].split('```')[0].trim();
+      } else if (rawText.contains('```')) {
+        jsonStr = rawText.split('```')[1].split('```')[0].trim();
+      }
 
-    // Simple line-by-line parsing (for demo)
-    // Production: Use LLM to parse structured JSON
+      final Map<String, dynamic> data = jsonDecode(jsonStr);
+      final List<dynamic> schedulesJson = data['schedules'] ?? [];
+      
+      final schedules = <ScheduleEntry>[];
+      for (final s in schedulesJson) {
+        final day = s['day']?.toString().toUpperCase() ?? 'SENIN';
+        final subject = s['subject']?.toString() ?? '';
+        final startTime = s['startTime']?.toString() ?? '07:00';
+        final endTime = s['endTime']?.toString() ?? '08:30';
+        final location = s['location']?.toString() ?? '';
+
+        if (subject.isNotEmpty) {
+          schedules.add(
+            ScheduleEntry(
+              id: 'sch_${DateTime.now().millisecondsSinceEpoch}_${schedules.length}',
+              userId: 'user_temp',
+              subject: subject,
+              subjectCode: _getSubjectCode(subject),
+              startTime: _parseTime(day, startTime),
+              endTime: _parseTime(day, endTime),
+              location: location,
+              isRecurring: true,
+              recurringDays: [_dayToRecurringDay(day)],
+              createdAt: DateTime.now(),
+            ),
+          );
+        }
+      }
+      return schedules;
+    } catch (e) {
+      debugPrint('[ScheduleRepository] JSON Parse error: $e');
+      // Fallback to simple line-by-line parsing if JSON fails
+      return _fallbackParseOCR(rawText);
+    }
+  }
+
+  List<ScheduleEntry> _fallbackParseOCR(String rawText) {
+    final schedules = <ScheduleEntry>[];
     final lines = rawText.split('\n');
 
     for (final line in lines) {
-      // Try to extract: DAY: TIME Subject
-      // Example: "SENIN: 07:00-08:30 Matematika"
       final dayMatch = RegExp(
         r'(SENIN|SELASA|RABU|KAMIS|JUMAT|SABTU)[:\s]+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s+(.+)',
         caseSensitive: false,
@@ -364,7 +416,6 @@ Catatan:
         }
       }
     }
-
     return schedules;
   }
 

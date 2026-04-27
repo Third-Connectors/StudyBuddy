@@ -55,7 +55,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                   children: [
                     _buildProgressBar(state),
                     Expanded(child: _buildQuestionBody(state)),
-                    if (_showHintPanel) _buildHintPanel(state),
+                    if (_showHintPanel) _buildHintBubble(state),
                     _buildBottomBar(state),
                   ],
                 ),
@@ -312,67 +312,92 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
     );
   }
 
-  Widget _buildHintPanel(PracticeState state) {
+  Widget _buildHintBubble(PracticeState state) {
     final idx = state.currentQuestionIndex;
     final hintState = state.hintStates[idx] ?? const QuestionHintState();
 
-    return Container(
-      constraints: const BoxConstraints(maxHeight: 220),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceWhite,
-        border: Border(top: BorderSide(color: AppColors.aiSuggestionBorder, width: 1.5)),
-      ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 10, 8, 0),
-            child: Row(
-              children: [
-                const Icon(Icons.auto_awesome, size: 18, color: AppColors.aiSuggestionIcon),
-                const SizedBox(width: 8),
-                Text('Socratic Hint', style: AppTextStyles.titleSmall.copyWith(color: AppColors.aiSuggestionIcon)),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 18),
-                  onPressed: () => setState(() => _showHintPanel = false),
-                ),
-              ],
-            ),
-          ),
-          // Hint content
-          Flexible(
-            child: hintState.hints.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('Butuh bantuan? AI akan memberi pertanyaan penuntun, bukan jawaban langsung.', style: AppTextStyles.bodySmall, textAlign: TextAlign.center),
-                        const SizedBox(height: 12),
-                        _buildRequestHintButton(hintState),
-                      ],
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // AI Avatar icon
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryOrange,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primaryOrange.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
-                  )
-                : ListView(
-                    shrinkWrap: true,
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    children: [
-                      ...hintState.hints.map((hint) => Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF8EC),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(hint.content, style: AppTextStyles.bodySmall.copyWith(color: AppColors.textPrimary, height: 1.5)),
-                        ),
-                      )),
-                      if (hintState.hintCount < 3) _buildRequestHintButton(hintState),
+                  ],
+                ),
+                child: const Icon(Icons.auto_awesome, size: 16, color: Colors.white),
+              ),
+              const SizedBox(width: 8),
+              // Hint Bubble
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(20),
+                      topRight: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
+                      bottomLeft: Radius.circular(4),
+                    ),
+                    border: Border.all(color: AppColors.aiSuggestionBorder),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
                     ],
                   ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (hintState.hints.isEmpty)
+                        Text(
+                          'Bingung? Klik tombol di bawah untuk petunjuk Socratic!',
+                          style: GoogleFonts.nunito(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary,
+                          ),
+                        )
+                      else
+                        ...hintState.hints.map((hint) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            hint.content,
+                            style: GoogleFonts.nunito(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textPrimary,
+                              height: 1.4,
+                            ),
+                          ),
+                        )),
+                      if (hintState.hintCount < 3)
+                        const SizedBox(height: 12),
+                      if (hintState.hintCount < 3)
+                        _buildRequestHintButton(hintState),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 24), // Space for close button
+            ],
           ),
         ],
       ),

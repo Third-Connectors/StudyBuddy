@@ -10,6 +10,7 @@ import '../domain/models/user_stats_model.dart';
 import 'package:studybuddy/features/auth/data/models/user_model.dart';
 import '../domain/models/daily_mission_model.dart';
 import '../domain/models/study_material_model.dart';
+import '../../study/presentation/practice_screen.dart';
 
 /// Home screen dashboard matching the design.
 class HomeScreen extends ConsumerStatefulWidget {
@@ -315,6 +316,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           iconBg: (m.subject == 'Biologi' ? Colors.green : Colors.blue).withValues(alpha: 0.12),
                           icon: m.subject == 'Biologi' ? Icons.eco_rounded : Icons.psychology_rounded,
                           iconColor: m.subject == 'Biologi' ? Colors.green : Colors.blue,
+                          onTap: () {
+                            debugPrint('[HomeScreen] Mission tapped: ${m.title}');
+                            final title = m.title.toLowerCase();
+                            if (title.contains('socratic') || title.contains('math')) {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const PracticeScreen(
+                                    subject: 'Matematika',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
                         ),
                       )).toList(),
                     ),
@@ -454,66 +469,71 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     required Color iconBg,
     required IconData icon,
     required Color iconColor,
+    VoidCallback? onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: statusBg == AppColors.statusInProgressBg ? AppColors.primaryOrangeLight : AppColors.divider),
-        boxShadow: const [
-          BoxShadow(
-            color: AppColors.cardShadow,
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: iconBg,
-              borderRadius: BorderRadius.circular(12),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: statusBg == AppColors.statusInProgressBg ? AppColors.primaryOrangeLight : AppColors.divider),
+          boxShadow: const [
+            BoxShadow(
+              color: AppColors.cardShadow,
+              blurRadius: 8,
+              offset: Offset(0, 2),
             ),
-            child: Icon(icon, color: iconColor, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              subject,
-              style: GoogleFonts.nunito(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                subject,
+                style: GoogleFonts.nunito(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textPrimary,
+                ),
               ),
             ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusBg,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Text(
-              status,
-              style: GoogleFonts.nunito(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: statusColor,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusBg,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                status,
+                style: GoogleFonts.nunito(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: statusColor,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildMaterialCard(StudyMaterial m) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -528,22 +548,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: AppColors.primaryOrangeLighter,
-              borderRadius: BorderRadius.circular(10),
+          // Thumbnail Image with Hero-like feel
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              width: 64,
+              height: 64,
+              decoration: BoxDecoration(
+                color: AppColors.primaryOrangeLighter,
+              ),
+              child: Image.network(
+                m.imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => const Icon(
+                  Icons.description_outlined,
+                  color: AppColors.primaryOrange,
+                  size: 24,
+                ),
+              ),
             ),
-            child: const Icon(Icons.description_outlined, color: AppColors.primaryOrange, size: 22),
           ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryOrangeLighter,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    m.category.toUpperCase(),
+                    style: GoogleFonts.nunito(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primaryOrange,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Text(
-                  m.topic,
+                  m.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.nunito(
                     fontSize: 15,
                     fontWeight: FontWeight.w800,
@@ -551,7 +601,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
                 Text(
-                  m.subject,
+                  m.description,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.nunito(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,

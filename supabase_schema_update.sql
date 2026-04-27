@@ -41,28 +41,88 @@ CREATE TABLE IF NOT EXISTS public.daily_missions (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 4. Tabel Study Materials (Materi Belajar Unggulan)
+CREATE TABLE IF NOT EXISTS public.study_materials (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title TEXT NOT NULL,
+    description TEXT,
+    category TEXT, -- Contoh: 'UTBK', 'SNBT', 'Ujian Sekolah'
+    image_url TEXT,
+    content_url TEXT, -- Link ke PDF/Video
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ── SECURITY (Row Level Security) ──
 
 -- Aktifkan RLS
 ALTER TABLE public.questions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.school_schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.daily_missions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.study_materials ENABLE ROW LEVEL SECURITY;
 
 -- Polisi untuk Questions (Siswa bisa baca semua, Guru bisa edit miliknya)
+DROP POLICY IF EXISTS "Siswa bisa melihat semua soal" ON public.questions;
+DROP POLICY IF EXISTS "Guru bisa tambah soal" ON public.questions;
+DROP POLICY IF EXISTS "Guru bisa edit soal milik sendiri" ON public.questions;
 CREATE POLICY "Siswa bisa melihat semua soal" ON public.questions FOR SELECT USING (true);
 CREATE POLICY "Guru bisa tambah soal" ON public.questions FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Guru bisa edit soal milik sendiri" ON public.questions FOR UPDATE USING (auth.uid() = teacher_id);
 
 -- Polisi untuk Jadwal (User hanya bisa akses miliknya sendiri)
+DROP POLICY IF EXISTS "User bisa kelola jadwal sendiri" ON public.school_schedules;
 CREATE POLICY "User bisa kelola jadwal sendiri" ON public.school_schedules 
     USING (auth.uid() = user_id) 
     WITH CHECK (auth.uid() = user_id);
 
 -- Polisi untuk Misi Harian (User hanya bisa akses miliknya sendiri)
+DROP POLICY IF EXISTS "User bisa kelola misi sendiri" ON public.daily_missions;
 CREATE POLICY "User bisa kelola misi sendiri" ON public.daily_missions 
     USING (auth.uid() = user_id) 
     WITH CHECK (auth.uid() = user_id);
 
+-- Polisi untuk Study Materials (Bisa dilihat oleh semua user yang login)
+DROP POLICY IF EXISTS "Semua user bisa lihat materi" ON public.study_materials;
+CREATE POLICY "Semua user bisa lihat materi" ON public.study_materials FOR SELECT USING (true);
+
 -- ── REALTIME ──
--- Aktifkan realtime untuk Daily Missions agar progress langsung terupdate di aplikasi
-ALTER PUBLICATION supabase_realtime ADD TABLE daily_missions;
+-- Aktifkan realtime agar progress langsung terupdate di aplikasi
+-- Gunakan psql blok untuk menghindari error jika publikasi sudah ada
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'daily_missions') THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE daily_missions;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'study_materials') THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE study_materials;
+    END IF;
+END $$;
+
+-- ── SEED DATA (Materi Contoh) ──
+INSERT INTO public.study_materials (title, description, category, image_url)
+VALUES 
+('Strategi UTBK 2026', 'Tips dan trik mengerjakan soal SNBT dengan cepat.', 'UTBK', 'https://images.unsplash.com/photo-1513258496099-48168024adb0?q=80&w=500'),
+('Kilas Balik Matematika', 'Review materi aljabar dan trigonometri kelas 10-12.', 'Ujian Sekolah', 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?q=80&w=500'),
+('Bahasa Inggris: Structure', 'Menguasai tenses dan grammar dalam 30 menit.', 'Bahasa', 'https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?q=80&w=500')
+ON CONFLICT (id) DO NOTHING;
+
+-- ── SEED DATA (Daily Missions) ──
+-- Catatan: Misi ini akan otomatis muncul untuk SEMUA user yang sudah terdaftar.
+INSERT INTO public.daily_missions (user_id, title, description, subject, points_reward)
+SELECT 
+    id as user_id,
+    'Tanya Socratic AI' as title,
+    'Gunakan Socratic AI untuk membantumu memahami soal Matematika yang sulit hari ini.' as description,
+    'Matematika' as subject,
+    100 as points_reward
+FROM auth.users
+ON CONFLICT DO NOTHING;
+
+-- ── SEED DATA (Questions / Latihan Soal) ──
+INSERT INTO public.questions (subject, topic, question_text, options, correct_option, explanation, difficulty)
+VALUES 
+('Matematika', 'Turunan', 'Turunan pertama dari f(x) = 3x^2 + 5x - 7 adalah...', '{"A": "6x + 5", "B": "6x - 5", "C": "3x + 5", "D": "6x"}', 'A', 'Menggunakan aturan pangkat: d/dx(ax^n) = n*ax^(n-1). Jadi 2*3x + 5 = 6x + 5.', 'Medium'),
+('Matematika', 'Logaritma', 'Jika 2^x = 64, maka nilai x adalah...', '{"A": "4", "B": "5", "C": "6", "D": "8"}', 'C', '2 pangkat 6 adalah 64 (2*2*2*2*2*2 = 64).', 'Easy'),
+('Fisika', 'Hukum Newton', 'Sebuah benda bermassa 2kg ditarik gaya 10N. Percepatannya adalah...', '{"A": "2 m/s^2", "B": "5 m/s^2", "C": "20 m/s^2", "D": "0.2 m/s^2"}', 'B', 'F = m.a -> a = F/m = 10/2 = 5.', 'Medium'),
+('Biologi', 'Sel', 'Organel sel yang berfungsi sebagai tempat respirasi sel adalah...', '{"A": "Ribosom", "B": "Nukleus", "C": "Mitokondria", "D": "Kloroplas"}', 'C', 'Mitokondria adalah the powerhouse of the cell tempat dihasilkannya ATP melalui respirasi.', 'Easy'),
+('B. Indonesia', 'Ejaan', 'Penulisan kata baku yang benar adalah...', '{"A": "Apotik", "B": "Apotek", "C": "Apotieq", "D": "Apotika"}', 'B', 'Menurut KBBI, kata yang baku adalah Apotek.', 'Easy')
+ON CONFLICT DO NOTHING;

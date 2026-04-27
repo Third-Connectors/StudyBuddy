@@ -75,6 +75,7 @@ Materi ini akan membahas poin-poin penting mengenai ${inputText} secara mendalam
   return (
     <div className="space-y-8">
       {/* ── Input Card ── */}
+      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-orange-100 flex items-center justify-center text-orange-600">

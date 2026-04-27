@@ -162,7 +162,7 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
           child: state.schedules.isEmpty
               ? _buildEmptyState()
               : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 100), // Ditambah padding bawah
                   itemCount: state.schedules.length,
                   itemBuilder: (context, index) {
                     final schedule = state.schedules[index];
@@ -239,6 +239,8 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
                   children: [
                     Text(
                       schedule.subject,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -282,39 +284,38 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
                         ],
                       ),
                     ],
-                  ],
-                ),
-              ),
-
-              // Recurring badge
-              if (schedule.isRecurring)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.green[50],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.repeat, size: 12, color: Colors.green),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Tiap ${_getDayShort(schedule.startTime.weekday)}',
-                        style: TextStyle(
-                          color: Colors.green[700],
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
+                    // Recurring badge moved here to save horizontal space
+                    if (schedule.isRecurring) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green[50],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.repeat, size: 12, color: Colors.green),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Tiap ${_getDayShort(schedule.startTime.weekday)}',
+                              style: TextStyle(
+                                color: Colors.green[700],
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
-                  ),
+                  ],
                 ),
-
-              const SizedBox(width: 8),
+              ),
 
               // Delete button
               IconButton(

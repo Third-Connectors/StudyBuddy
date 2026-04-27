@@ -92,7 +92,11 @@ final studyMaterialsProvider = StreamProvider<List<StudyMaterial>>((ref) {
   return supabase
       .from('study_materials')
       .stream(primaryKey: ['id'])
-      .map((data) => data.map((json) => StudyMaterial.fromJson(json)).toList());
+      .map((data) => data.map((json) => StudyMaterial.fromJson(json)).toList())
+      .handleError((error) {
+        print('Error loading study materials: $error');
+        return <StudyMaterial>[];
+      });
 });
 
 /// Provides a simple countdown to UTBK 2026.

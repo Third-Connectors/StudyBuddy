@@ -52,14 +52,14 @@ abstract final class ApiConfig {
 
   /// Gemini API base URL
   static const String geminiBaseUrl =
-      'https://generativelanguage.googleapis.com/v1beta';
+      'https://generativelanguage.googleapis.com/v1beta/';
 
   /// Gemini model for Socratic Tutor (text-based)
   /// Recommended: gemini-1.5-flash for speed & cost efficiency
-  static const String geminiModel = 'gemini-1.5-flash';
+  static const String geminiModel = 'gemini-2.5-flash';
 
   /// Gemini model for Vision/OCR tasks (schedule scanner, image analysis)
-  static const String geminiVisionModel = 'gemini-1.5-flash';
+  static const String geminiVisionModel = 'gemini-2.5-flash';
 
   /// Socratic Tutor System Prompt (Kurikulum Merdeka/K13 context)
   static const String socraticPrompt =
