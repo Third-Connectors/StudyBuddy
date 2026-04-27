@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Web Project related
+**/node_modules/
+**/.next/
+**/.env*
+landing-page/out/
+

@@ -16,7 +16,7 @@ export class ScheduleController {
   @ApiOperation({ summary: 'Upload schedule image for OCR' })
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FileInterceptor('file'))
-  async uploadSchedule(@Request() req, @UploadedFile() file: Express.Multer.File) {
+  async uploadSchedule(@Request() req, @UploadedFile() file: any) {
     return this.scheduleService.uploadSchedule(req.user.userId, file);
   }
 

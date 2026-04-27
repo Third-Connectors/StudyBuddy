@@ -1,66 +1,115 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../domain/models/quiz_item_model.dart';
-import '../domain/models/user_model.dart';
+import '../../../core/providers/supabase_provider.dart';
+import '../domain/models/user_stats_model.dart';
+import 'package:studybuddy/features/auth/data/models/user_model.dart';
+import '../domain/models/countdown_model.dart';
+import '../domain/models/daily_mission_model.dart';
+import '../domain/models/study_material_model.dart';
 
-// ── User Provider ─────────────────────────────────────────────────────────────
-/// Provides a mocked [UserModel] that exactly matches the design mockup.
-/// Replace with a real repository call (e.g. `ref.watch(authRepoProvider)`)
-/// once the backend is wired up.
-final userProvider = Provider<UserModel>((ref) {
-  return const UserModel(
-    id: 'usr_001',
-    name: 'Benjamin Šeško',
-    gradeClass: 'Class 12',
-    xpPoints: 1250,
-    rank: 8,
-    presencePercentage: 85,
-    targetUniversity: 'Institut Teknologi Bandung (ITB) - Teknik Informatika',
-    fireStreak: 50,
+/// Provides the user stats from Supabase.
+final userStatsProvider = StreamProvider<UserStats>((ref) {
+  final supabase = ref.watch(supabaseClientProvider);
+  final user = supabase.auth.currentUser;
+
+  if (user == null) {
+    return Stream.value(const UserStats(streak: 0, xp: 0, rank: 0, presence: '0%'));
+  }
+
+  return supabase
+      .from('user_stats')
+      .stream(primaryKey: ['id'])
+      .eq('user_id', user.id)
+      .map((data) {
+        if (data.isEmpty) {
+          return const UserStats(streak: 0, xp: 0, rank: 0, presence: '0%');
+        }
+        return UserStats.fromJson(data.first);
+      });
+});
+
+/// Provides basic user profile info from the profiles table.
+final userProvider = StreamProvider<UserModel>((ref) {
+  final supabase = ref.watch(supabaseClientProvider);
+  final user = supabase.auth.currentUser;
+
+  if (user == null) {
+    return Stream.value(UserModel(
+      id: '',
+      email: '',
+      name: 'Student',
+      gradeLevel: '12',
+      xpPoints: 0,
+      rank: 1,
+      presencePercentage: 0,
+      targetUniversity: 'Universitas Indonesia',
+      fireStreak: 0,
+      createdAt: DateTime.now(),
+    ));
+  }
+
+  return supabase
+      .from('profiles')
+      .stream(primaryKey: ['id'])
+      .eq('id', user.id)
+      .map((data) {
+        if (data.isEmpty) {
+          return UserModel(
+            id: user.id,
+            email: user.email ?? '',
+            name: user.userMetadata?['name'] ?? 'Student',
+            gradeLevel: '12',
+            xpPoints: 0,
+            rank: 1,
+            presencePercentage: 0,
+            targetUniversity: 'Universitas Indonesia',
+            fireStreak: 0,
+            createdAt: DateTime.now(),
+          );
+        }
+        return UserModel.fromJson(data.first);
+      });
+});
+
+/// Provides daily missions from Supabase.
+final dailyMissionsProvider = StreamProvider<List<DailyMission>>((ref) {
+  final supabase = ref.watch(supabaseClientProvider);
+  final user = supabase.auth.currentUser;
+
+  if (user == null) return Stream.value([]);
+
+  return supabase
+      .from('daily_missions')
+      .stream(primaryKey: ['id'])
+      .eq('user_id', user.id)
+      .map((data) => data.map((json) => DailyMission.fromJson(json)).toList());
+});
+
+/// Provides study materials from Supabase.
+final studyMaterialsProvider = StreamProvider<List<StudyMaterial>>((ref) {
+  final supabase = ref.watch(supabaseClientProvider);
+  
+  return supabase
+      .from('study_materials')
+      .stream(primaryKey: ['id'])
+      .map((data) => data.map((json) => StudyMaterial.fromJson(json)).toList());
+});
+
+/// Provides a simple countdown to UTBK 2026.
+final countdownProvider = StateProvider<Countdown>((ref) {
+  // Target date: May 1, 2026
+  final targetDate = DateTime(2026, 5, 1);
+  
+  // Initial calculation
+  final now = DateTime.now();
+  final difference = targetDate.isAfter(now) 
+      ? targetDate.difference(now) 
+      : Duration.zero;
+
+  return Countdown(
+    days: difference.inDays,
+    hours: difference.inHours % 24,
+    minutes: difference.inMinutes % 60,
+    seconds: difference.inSeconds % 60,
   );
-});
-
-// ── Countdown Data ────────────────────────────────────────────────────────────
-/// Plain data class for the UTBK SNBT 2026 countdown values.
-class CountdownData {
-  final int days;
-  final int hours;
-  final int minutes;
-
-  const CountdownData({
-    required this.days,
-    required this.hours,
-    required this.minutes,
-  });
-}
-
-/// Provides mocked countdown data as seen in the design (84d 11h 1m).
-/// In production, derive this by computing the delta from DateTime.now()
-/// to the UTBK exam date.
-final countdownProvider = Provider<CountdownData>((ref) {
-  return const CountdownData(days: 84, hours: 11, minutes: 1);
-});
-
-// ── Quiz List Provider ────────────────────────────────────────────────────────
-/// Provides the mocked "Latest Quiz" list shown on the Home screen.
-/// Subjects match the design: Bahasa Indonesia (Done), Matematika (In Progress),
-/// Bahasa Inggris (To do).
-final quizItemsProvider = Provider<List<QuizItemModel>>((ref) {
-  return const [
-    QuizItemModel(
-      subject: 'Bahasa Indonesia',
-      status: QuizStatus.done,
-      subjectColor: Color(0xFF4CAF50),
-    ),
-    QuizItemModel(
-      subject: 'Matematika',
-      status: QuizStatus.inProgress,
-      subjectColor: Color(0xFFFF9800),
-    ),
-    QuizItemModel(
-      subject: 'Bahasa Inggris',
-      status: QuizStatus.toDo,
-      subjectColor: Color(0xFF9E9E9E),
-    ),
-  ];
 });

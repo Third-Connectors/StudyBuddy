@@ -10,7 +10,7 @@ export class ScheduleService {
     private configService: ConfigService,
   ) {}
 
-  async uploadSchedule(userId: string, file: Express.Multer.File) {
+  async uploadSchedule(userId: string, file: any) {
     // Process with Gemini Vision API
     const geminiApiKey = this.configService.get<string>('GEMINI_API_KEY');
 
@@ -55,7 +55,7 @@ export class ScheduleService {
         }),
       );
 
-      return response.data;
+      return (response as any).data;
     } catch (error) {
       // Fallback: Simple scheduling
       return { schedules: [] };

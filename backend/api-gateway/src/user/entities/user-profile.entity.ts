@@ -2,7 +2,7 @@ import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateCol
 
 import { User } from './user.entity';
 
-@Entity('user_profiles')
+@Entity('profiles')
 export class UserProfile {
   @PrimaryGeneratedColumn('uuid')
   id: string;

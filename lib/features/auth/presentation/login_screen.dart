@@ -6,9 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/custom_text_form_field.dart';
-import '../data/auth_providers.dart';
 import '../data/repositories/auth_repository.dart';
-import '../../../core/services/auth_service.dart';
 
 /// Login screen for Study Buddy.
 ///
@@ -70,8 +68,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Navigator.pushNamedAndRemoveUntil(context, '/home', (route) => false);
         }
       } catch (e) {
+        String errorMessage = e.toString();
+        
+        // Map Supabase errors to user-friendly Indonesian messages
+        if (errorMessage.contains('email_not_confirmed')) {
+          errorMessage = 'Email belum dikonfirmasi. Silakan cek inbox/spam email Anda untuk verifikasi.';
+        } else if (errorMessage.contains('Invalid login credentials')) {
+          errorMessage = 'Email atau password salah.';
+        } else if (errorMessage.contains('Network') || errorMessage.contains('SocketException')) {
+          errorMessage = 'Koneksi internet bermasalah. Silakan coba lagi.';
+        } else {
+          errorMessage = 'Terjadi kesalahan saat login.';
+        }
+        
         // Show error
-        _showErrorSnackBar(e.toString());
+        _showErrorSnackBar(errorMessage);
       } finally {
         if (mounted) {
           setState(() => _isLoading = false);
@@ -325,11 +336,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       onTap: _isLoading
                           ? null
                           : () {
-                              Navigator.pushNamedAndRemoveUntil(
-                                context,
-                                '/onboarding1',
-                                (route) => false,
-                              );
+                              Navigator.pushNamed(context, '/onboarding1');
                             },
                       child: Text(
                         'Daftar',
@@ -337,7 +344,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                           color: _isLoading
-                              ? AppColors.primaryOrange.withValues(alpha: 0.45)
+                              ? AppColors.primaryOrange.withOpacity(0.45)
                               : AppColors.primaryOrange,
                           decoration: TextDecoration.underline,
                           decorationColor: AppColors.primaryOrange,
@@ -385,7 +392,7 @@ class _HeroSection extends StatelessWidget {
               border: Border.all(color: AppColors.primaryOrangeLight, width: 2),
               boxShadow: [
                 BoxShadow(
-                  color: AppColors.primaryOrange.withValues(alpha: 0.12),
+                  color: AppColors.primaryOrange.withOpacity(0.12),
                   blurRadius: 20,
                   offset: const Offset(0, 8),
                 ),

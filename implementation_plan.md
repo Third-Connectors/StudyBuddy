@@ -61,10 +61,11 @@ graph TD
 - **Model**: Scikit-learn's `KNeighborsClassifier` trained on validated VAK datasets.
 - **Inference**: Triggered once per semester or upon user request to recalibrate.
 
-### 2. Socratic Tutor
-- **LLM Selection**: **Google Gemini (Pro/Flash)** for multimodal capabilities (OCR assistance + Tutoring).
-- **Prompt Template**: `You are a Socratic Tutor. Never give the answer directly. If a student is stuck, ask a leading question. Context: Indonesian High School curriculum (Kurikulum Merdeka/K13).`
-- **Context Management**: Compress history using LLM Summarization to keep tokens within the 4k-8k window while maintaining thread relevance.
+### 2. Socratic Tutor (In-Quiz Hint System)
+- **Concept**: Socratic Tutor is **NOT a standalone chat room**. It is an **integrated hint system** within the quiz/practice screen. When a student is stuck on a problem, they press a "Minta Bantuan AI" button to receive a Socratic-style leading question.
+- **LLM Selection**: **Google Gemini (Pro/Flash)** for multimodal capabilities (analyzing the current problem + providing hints).
+- **Prompt Template**: `You are a Socratic Tutor embedded in a quiz system. The student is working on problem #N. Never give the answer directly. Analyze the problem and ask ONE leading question to guide their thinking. Context: Indonesian High School curriculum (Kurikulum Merdeka/K13).`
+- **Context-Aware**: The AI receives the current question, subject, difficulty, and student's previous wrong attempts to tailor its hint.
 - **Latency**: Use **Streaming Responses** (Server-Sent Events) to provide immediate feedback.
 
 ### 3. Smart Schedule Scanner (Indonesian Priority)
@@ -116,7 +117,7 @@ graph TD
 | **Tech Stack** | Flutter (Mobile) | [x] Flutter initialized (Boilerplate) |
 | **Architecture** | Microservices/Modular | [ ] Not implemented (Single `lib/main.dart`) |
 | **VAK Detection** | KNN Classifier | [ ] Not implemented |
-| **Socratic AI** | LLM API Integration | [ ] Not implemented |
+| **Socratic AI** | In-Quiz Hint (LLM) | [x] Gemini API integrated (needs quiz UI) |
 | **Schedule Scanner** | OCR + Genetic Algo | [ ] Not implemented |
 | **Database** | Postgres/Mongo/Redis | [ ] No DB connections found |
 | **Security** | RBAC/Encryption | [ ] Default "Flutter Demo" security |

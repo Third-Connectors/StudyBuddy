@@ -27,7 +27,7 @@ class SubjectListItemWidget extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.045),
+            color: Colors.black.withOpacity(0.045),
             blurRadius: 12,
             offset: const Offset(0, 3),
           ),
@@ -41,7 +41,7 @@ class SubjectListItemWidget extends StatelessWidget {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: subject.iconColor.withValues(alpha: 0.12),
+              color: subject.iconColor.withOpacity(0.12),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(subject.icon, size: 22, color: subject.iconColor),

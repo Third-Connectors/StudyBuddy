@@ -1,0 +1,34 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-space-grotesk);
+}
+
+:root {
+  --background: #FFFBF0; /* Warm cream background */
+  --foreground: #0F172A;
+  --primary: #FF7D33;    /* The vibrant orange from the character */
+  --secondary: #1E6B4E;  /* The dark green from the button */
+  --accent: #93C5FD;     /* The light blue from the phone background */
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display), system-ui, sans-serif;
+}
+
+::selection {
+  background: #F97316;
+  color: white;
+}

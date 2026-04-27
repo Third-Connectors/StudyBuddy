@@ -140,12 +140,12 @@ class CustomTextFormField extends StatelessWidget {
             ),
 
             // Borders
-            border: _border(AppColors.primaryOrangeLight, 1.5),
-            enabledBorder: _border(AppColors.primaryOrangeLight, 1.5),
-            focusedBorder: _border(AppColors.primaryOrange, 2.0),
+            border: _border(Colors.transparent, 0),
+            enabledBorder: _border(Colors.transparent, 0),
+            focusedBorder: _border(AppColors.primaryOrangeLight, 1.5),
             errorBorder: _border(Colors.red, 1.5),
             focusedErrorBorder: _border(Colors.red, 2.0),
-            disabledBorder: _border(AppColors.progressTrack, 1.0),
+            disabledBorder: _border(Colors.transparent, 0),
 
             // Error style
             errorStyle: GoogleFonts.nunito(

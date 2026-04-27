@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../data/vak_providers.dart';
 import '../domain/models/vak_result_model.dart';
+import '../domain/models/vak_question_model.dart';
 
 /// Onboarding final screen — shown after the VAK survey is completed.
 ///
@@ -194,17 +195,25 @@ class _VakResultCard extends StatelessWidget {
 
           const SizedBox(height: 12),
 
-          // ── Score pills row ───────────────────────────────────────────────
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
+          // ── Score pills row (Wrapped for responsiveness) ─────────────────
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              _ScorePill(label: '👁️ Visual', score: result.visualScore),
-              const SizedBox(width: 8),
-              _ScorePill(label: '👂 Auditory', score: result.auditoryScore),
-              const SizedBox(width: 8),
+              _ScorePill(
+                label: '👁️ Visual',
+                score: result.visualScore,
+                isDominant: result.dominantStyle == VakStyle.visual,
+              ),
+              _ScorePill(
+                label: '👂 Auditory',
+                score: result.auditoryScore,
+                isDominant: result.dominantStyle == VakStyle.auditory,
+              ),
               _ScorePill(
                 label: '✋ Kinesthetic',
                 score: result.kinestheticScore,
+                isDominant: result.dominantStyle == VakStyle.kinesthetic,
               ),
             ],
           ),
@@ -219,23 +228,30 @@ class _VakResultCard extends StatelessWidget {
 class _ScorePill extends StatelessWidget {
   final String label;
   final int score;
+  final bool isDominant;
 
-  const _ScorePill({required this.label, required this.score});
+  const _ScorePill({
+    required this.label,
+    required this.score,
+    this.isDominant = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.primaryOrangeLighter,
+        color: isDominant
+            ? AppColors.primaryOrange
+            : AppColors.primaryOrangeLighter,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
         '$label: $score',
         style: GoogleFonts.nunito(
           fontSize: 12,
-          fontWeight: FontWeight.w600,
-          color: AppColors.primaryOrange,
+          fontWeight: isDominant ? FontWeight.w800 : FontWeight.w600,
+          color: isDominant ? Colors.white : AppColors.primaryOrange,
         ),
       ),
     );

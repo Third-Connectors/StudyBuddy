@@ -264,7 +264,7 @@ abstract final class AppTheme {
       // ── Tooltip ───────────────────────────────────────────────────────────
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: AppColors.textPrimary.withValues(alpha: 0.9),
+          color: AppColors.textPrimary.withOpacity(0.9),
           borderRadius: BorderRadius.circular(8),
         ),
         textStyle: GoogleFonts.nunito(fontSize: 12, color: AppColors.textWhite),

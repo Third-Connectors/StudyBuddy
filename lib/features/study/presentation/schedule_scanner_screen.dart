@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../domain/providers/schedule_provider.dart';
 import '../data/models/schedule_model.dart';
+import 'schedule_scan_preview_page.dart';
 
 /// Schedule Scanner Screen - Upload and process schedule images.
 class ScheduleScannerScreen extends ConsumerStatefulWidget {
@@ -26,12 +27,20 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
   }
 
   @override
+  void dispose() {
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final state = ref.watch(scheduleNotifierProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Jadwal Pelajaran'),
+        elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
         actions: [
           IconButton(
             icon: const Icon(Icons.auto_awesome),
@@ -40,9 +49,7 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
           ),
         ],
       ),
-      body: state.selectedImage != null
-          ? _buildScanPreview(state)
-          : _buildScheduleList(state),
+      body: _buildScheduleList(state),
     );
   }
 
@@ -95,9 +102,12 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
                 children: [
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: () => ref
-                          .read(scheduleNotifierProvider.notifier)
-                          .takePhoto(),
+                      onPressed: () async {
+                        await ref.read(scheduleNotifierProvider.notifier).takePhoto();
+                        if (mounted && ref.read(scheduleNotifierProvider).selectedImage != null) {
+                          _navigateToPreview();
+                        }
+                      },
                       icon: const Icon(Icons.camera_alt),
                       label: const Text('Foto'),
                       style: ElevatedButton.styleFrom(
@@ -109,9 +119,12 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: OutlinedButton.icon(
-                      onPressed: () => ref
-                          .read(scheduleNotifierProvider.notifier)
-                          .pickImageFromGallery(),
+                      onPressed: () async {
+                        await ref.read(scheduleNotifierProvider.notifier).pickImageFromGallery();
+                        if (mounted && ref.read(scheduleNotifierProvider).selectedImage != null) {
+                          _navigateToPreview();
+                        }
+                      },
                       icon: const Icon(Icons.photo_library),
                       label: const Text('Galeri'),
                       style: OutlinedButton.styleFrom(
@@ -315,166 +328,9 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
     );
   }
 
-  Widget _buildScanPreview(ScheduleState state) {
-    return Column(
-      children: [
-        // Image preview
-        Expanded(
-          flex: 2,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Image.file(state.selectedImage!, fit: BoxFit.contain),
-              Positioned(
-                top: 16,
-                left: 16,
-                child: IconButton(
-                  icon: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: Colors.black54,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.close, color: Colors.white),
-                  ),
-                  onPressed: () =>
-                      ref.read(scheduleNotifierProvider.notifier).clearScan(),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Processing section
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                if (state.isScanning) ...[
-                  const CircularProgressIndicator(),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Memproses gambar...',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Menggunakan OCR untuk ekstrak jadwal',
-                    style: TextStyle(color: Colors.grey[600]),
-                  ),
-                ] else if (state.ocrResult != null) ...[
-                  _buildExtractedSchedules(state, state.ocrResult!),
-                ] else ...[
-                  const Icon(
-                    Icons.document_scanner,
-                    size: 64,
-                    color: Colors.blue,
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Siap untuk scan',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Tekan tombol di bawah untuk mulai memproses',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                  const SizedBox(height: 24),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: () => ref
-                          .read(scheduleNotifierProvider.notifier)
-                          .processImage(),
-                      icon: const Icon(Icons.document_scanner),
-                      label: const Text('Proses Gambar'),
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.all(16),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildExtractedSchedules(ScheduleState state, OcrResult result) {
-    return Column(
-      children: [
-        const Text(
-          'Jadwal Ditemukan',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          '${result.extractedSchedules.length} jadwal ditemukan',
-          style: TextStyle(color: Colors.grey[600]),
-        ),
-        const SizedBox(height: 16),
-        Expanded(
-          child: ListView.builder(
-            itemCount: result.extractedSchedules.length,
-            itemBuilder: (context, index) {
-              final schedule = result.extractedSchedules[index];
-              return Card(
-                child: ListTile(
-                  leading: Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      color: Colors.blue[100],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Center(
-                      child: Text(
-                        schedule.subjectCode,
-                        style: TextStyle(
-                          color: Colors.blue[900],
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ),
-                  title: Text(schedule.subject),
-                  subtitle: Text(
-                    '${DateFormat('HH:mm').format(schedule.startTime)} - ${DateFormat('HH:mm').format(schedule.endTime)}',
-                  ),
-                  trailing: const Icon(Icons.check_circle, color: Colors.green),
-                ),
-              );
-            },
-          ),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: state.isSaving
-                ? null
-                : () => ref
-                      .read(scheduleNotifierProvider.notifier)
-                      .saveSchedules(),
-            icon: state.isSaving
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.save),
-            label: Text(
-              state.isSaving ? 'Menyimpan...' : 'Simpan Semua Jadwal',
-            ),
-            style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(16)),
-          ),
-        ),
-      ],
+  void _navigateToPreview() {
+    Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const ScheduleScanPreviewPage()),
     );
   }
 
@@ -681,3 +537,4 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
     return days[(weekday - 1) % 7];
   }
 }
+

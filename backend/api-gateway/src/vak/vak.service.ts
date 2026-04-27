@@ -6,22 +6,50 @@ import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
 
 import { VakResult } from './entities/vak-result.entity';
+import { VakQuestion } from './entities/vak-question.entity';
 
 @Injectable()
 export class VakService {
   constructor(
     @InjectRepository(VakResult)
     private vakRepository: Repository<VakResult>,
+    @InjectRepository(VakQuestion)
+    private vakQuestionRepository: Repository<VakQuestion>,
     private httpService: HttpService,
     private configService: ConfigService,
   ) {}
 
+  async getQuestions(): Promise<VakQuestion[]> {
+    const questions = await this.vakQuestionRepository.find({
+      order: { id: 'ASC' },
+    });
+
+    if (questions.length === 0) {
+      // Auto-seed if database is empty
+      await this.seedQuestions();
+      return this.vakQuestionRepository.find({
+        order: { id: 'ASC' },
+      });
+    }
+
+    return questions;
+  }
+
   /**
-   * Get VAK questions (from MongoDB or hardcoded)
+   * Seed hardcoded questions into the database
    */
-  async getQuestions(): Promise<any[]> {
-    // TODO: Fetch from MongoDB
-    return this._getHardcodedQuestions();
+  async seedQuestions(): Promise<void> {
+    const questions = this._getHardcodedQuestions();
+    for (const q of questions) {
+      const entity = this.vakQuestionRepository.create({
+        id: q.id,
+        question: q.question,
+        optionA: q.optionA,
+        optionB: q.optionB,
+        optionC: q.optionC,
+      });
+      await this.vakQuestionRepository.save(entity);
+    }
   }
 
   /**
@@ -38,7 +66,7 @@ export class VakService {
         }),
       );
 
-      const resultData = response.data.result;
+      const resultData = (response as any).data.result;
 
       // Save to PostgreSQL
       const vakResult = this.vakRepository.create({
@@ -87,7 +115,7 @@ export class VakService {
   /**
    * Calculate VAK result locally (fallback)
    */
-  private _calculateResultLocally(userId: string, answers: any[]): VakResult {
+  private async _calculateResultLocally(userId: string, answers: any[]): Promise<VakResult> {
     let visualScore = 0;
     let auditoryScore = 0;
     let kinestheticScore = 0;
@@ -147,7 +175,10 @@ export class VakService {
   }
 
   /**
-   * Hardcoded VAK questions
+   * Hardcoded VAK questions — 20-question psychometric survey.
+   *
+   * Designed for Indonesian high school students (SMA/MA/SMK).
+   * Option A = Visual, Option B = Auditory, Option C = Kinesthetic.
    */
   private _getHardcodedQuestions(): any[] {
     return [
@@ -165,7 +196,132 @@ export class VakService {
         optionB: 'Mendengarkan penjelasan lisan',
         optionC: 'Langsung mencoba sambil belajar',
       },
-      // Add remaining 18 questions...
+      {
+        id: 3,
+        question: 'Ketika aku punya waktu luang, aku biasanya...',
+        optionA: 'Menonton video atau membaca buku bergambar',
+        optionB: 'Mendengarkan musik atau podcast',
+        optionC: 'Berolahraga atau melakukan aktivitas fisik',
+      },
+      {
+        id: 4,
+        question: 'Aku paling mudah mengingat...',
+        optionA: 'Apa yang aku lihat',
+        optionB: 'Apa yang aku dengar',
+        optionC: 'Apa yang aku lakukan',
+      },
+      {
+        id: 5,
+        question: 'Ketika belajar untuk ujian, aku lebih suka...',
+        optionA: 'Membuat catatan berwarna dan mind map',
+        optionB: 'Diskusi dengan teman atau membaca keras-keras',
+        optionC: 'Mengerjakan latihan soal berulang-ulang',
+      },
+      {
+        id: 6,
+        question: 'Di kelas, aku lebih suka guru yang...',
+        optionA: 'Menggunakan banyak gambar dan slide presentasi',
+        optionB: 'Menjelaskan dengan detail dan jelas',
+        optionC: 'Memberikan banyak praktik dan eksperimen',
+      },
+      {
+        id: 7,
+        question: 'Ketika aku tersesat di tempat baru, aku...',
+        optionA: 'Melihat peta atau tanda-tanda visual',
+        optionB: 'Bertanya pada orang sekitar',
+        optionC: 'Coba jalan terus sampai menemukan jalan',
+      },
+      {
+        id: 8,
+        question: 'Aku paling suka tugas yang...',
+        optionA: 'Banyak gambar dan ilustrasi',
+        optionB: 'Ada diskusi presentasi',
+        optionC: 'Ada praktik atau eksperimen',
+      },
+      {
+        id: 9,
+        question: 'Ketika membeli barang baru, aku...',
+        optionA: 'Melihat gambar dan spesifikasi',
+        optionB: 'Mendengarkan review dari orang lain',
+        optionC: 'Langsung mencoba barangnya',
+      },
+      {
+        id: 10,
+        question: 'Aku lebih suka pelajaran yang...',
+        optionA: 'Banyak diagram dan gambar (seperti Biologi)',
+        optionB: 'Banyak diskusi dan cerita (seperti Sejarah)',
+        optionC: 'Banyak praktikum (seperti Kimia/Fisika)',
+      },
+      {
+        id: 11,
+        question: 'Ketika menjelaskan sesuatu, aku sering...',
+        optionA: 'Menggambar atau menunjukkan',
+        optionB: 'Menjelaskan dengan kata-kata',
+        optionC: 'Mendemonstrasikan langsung',
+      },
+      {
+        id: 12,
+        question: 'Aku terganggu ketika...',
+        optionA: 'Tempat berantakan atau tidak rapi',
+        optionB: 'Ada suara bising',
+        optionC: 'Harus duduk diam terlalu lama',
+      },
+      {
+        id: 13,
+        question: 'Ketika belajar bahasa baru, aku lebih suka...',
+        optionA: 'Melihat tulisan dan gambar',
+        optionB: 'Mendengarkan dan mengulang',
+        optionC: 'Praktik langsung berbicara',
+      },
+      {
+        id: 14,
+        question: 'Aku lebih mudah paham dengan...',
+        optionA: 'Video tutorial',
+        optionB: 'Podcast atau rekaman suara',
+        optionC: 'Tutorial praktik langsung',
+      },
+      {
+        id: 15,
+        question: 'Ketika bermain game, aku lebih suka...',
+        optionA: 'Game dengan grafis bagus',
+        optionB: 'Game dengan cerita menarik',
+        optionC: 'Game yang butuh keterampilan fisik',
+      },
+      {
+        id: 16,
+        question: 'Ruangan belajarku biasanya...',
+        optionA: 'Banyak poster dan catatan di dinding',
+        optionB: 'Sering diputar musik atau audio',
+        optionC: 'Banyak alat praktik atau benda untuk disentuh',
+      },
+      {
+        id: 17,
+        question: 'Ketika menghadapi masalah, aku...',
+        optionA: 'Membuat daftar atau diagram',
+        optionB: 'Curhat atau diskusi dengan orang lain',
+        optionC: 'Langsung action mencari solusi',
+      },
+      {
+        id: 18,
+        question: 'Aku lebih suka presentasi yang...',
+        optionA: 'Banyak slide dan visual',
+        optionB: 'Penjelasan detail dari presenter',
+        optionC: 'Ada demo atau praktik langsung',
+      },
+      {
+        id: 19,
+        question: 'Ketika menghafal, aku biasanya...',
+        optionA: 'Menulis ulang atau membuat catatan visual',
+        optionB: 'Membaca keras-keras atau mendengarkan',
+        optionC: 'Sambil bergerak atau melakukan sesuatu',
+      },
+      {
+        id: 20,
+        question: 'Teman-temanku bilang aku...',
+        optionA: 'Peka terhadap tampilan dan warna',
+        optionB: 'Pendengar yang baik',
+        optionC: 'Aktif dan suka bergerak',
+      },
     ];
   }
 }

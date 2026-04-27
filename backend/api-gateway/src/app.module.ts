@@ -30,27 +30,14 @@ import { HealthModule } from './health/health.module';
     }),
 
     // ── PostgreSQL (TypeORM) - User Data ────────────────────────────────────
-    TypeOrmModule.forRootAsync({
-      useFactory: postgresDataSourceOptions,
-      inject: [ConfigService],
-    }),
+    TypeOrmModule.forRootAsync(postgresDataSourceOptions as any),
 
     // ── MongoDB (Mongoose) - Content ────────────────────────────────────────
-    MongooseModule.forRootAsync({
-      useFactory: mongooseConfig,
-      inject: [ConfigService],
-    }),
+    MongooseModule.forRootAsync(mongooseConfig as any),
 
-    // ── Redis (Cache) ───────────────────────────────────────────────────────
-    CacheModule.registerAsync({
+    CacheModule.register({
       isGlobal: true,
-      useFactory: async (configService: ConfigService) => ({
-        store: await import('cache-manager-redis-store'),
-        host: configService.get<string>('REDIS_HOST', 'localhost'),
-        port: configService.get<number>('REDIS_PORT', 6379),
-        ttl: 300, // 5 minutes default
-      }),
-      inject: [ConfigService],
+      ttl: 300, // 5 minutes default
     }),
 
     // ── Rate Limiting ───────────────────────────────────────────────────────
@@ -58,7 +45,7 @@ import { HealthModule } from './health/health.module';
       useFactory: async (configService: ConfigService) => ({
         ttl: configService.get<number>('THROTTLE_TTL', 60),
         limit: configService.get<number>('THROTTLE_LIMIT', 10),
-      }),
+      } as any),
       inject: [ConfigService],
     }),
 

@@ -80,7 +80,7 @@ export class UserService {
     }
 
     if (updateUserDto.phoneNumber) profile.phoneNumber = updateUserDto.phoneNumber;
-    if (updateUserDto.dateOfBirth) profile.dateOfBirth = updateUserDto.dateOfBirth;
+    if (updateUserDto.dateOfBirth) profile.dateOfBirth = new Date(updateUserDto.dateOfBirth);
     if (updateUserDto.gender) profile.gender = updateUserDto.gender;
     if (updateUserDto.address) profile.address = updateUserDto.address;
     if (updateUserDto.city) profile.city = updateUserDto.city;

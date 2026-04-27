@@ -10,7 +10,7 @@ export enum UserRole {
   ADMIN = 'admin',
 }
 
-@Entity('users')
+@Entity('app_users')
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -53,10 +53,8 @@ export class User {
 
   // Relations
   @OneToOne(() => UserProfile, (profile) => profile.user)
-  @JoinColumn({ name: 'id' })
   profile?: UserProfile;
 
   @OneToOne(() => UserStat, (stats) => stats.user)
-  @JoinColumn({ name: 'id' })
   stats?: UserStat;
 }

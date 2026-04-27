@@ -27,81 +27,78 @@ class StudyScreen extends ConsumerWidget {
     final subjects = ref.watch(subjectListProvider);
     final selectedTab = ref.watch(studyTabIndexProvider);
 
-    return Scaffold(
-      backgroundColor: AppColors.backgroundCream,
-      body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            // ── 1. Screen Header ─────────────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Study', style: AppTextStyles.headlineLarge),
-                          const SizedBox(height: 2),
-                          Text(
-                            'Class 12 · ${overallData.totalSubjects} Subject',
-                            style: AppTextStyles.bodySmall,
-                          ),
-                        ],
-                      ),
+    return SafeArea(
+      child: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          // ── 1. Screen Header ─────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Study', style: AppTextStyles.headlineLarge),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Class 12 - ${overallData.totalSubjects} Subject',
+                          style: AppTextStyles.bodySmall,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
+          ),
 
-            // ── 2. Overall Progress Card ──────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                child: _OverallProgressCard(data: overallData),
+          // ── 2. Overall Progress Card ──────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: _OverallProgressCard(data: overallData),
+            ),
+          ),
+
+          // ── 3. Segmented Tab Control ──────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: _SegmentedTabBar(
+                selectedIndex: selectedTab,
+                onChanged: (i) =>
+                    ref.read(studyTabIndexProvider.notifier).state = i,
               ),
             ),
+          ),
 
-            // ── 3. Segmented Tab Control ──────────────────────────────────
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
-                child: _SegmentedTabBar(
-                  selectedIndex: selectedTab,
-                  onChanged: (i) =>
-                      ref.read(studyTabIndexProvider.notifier).state = i,
-                ),
-              ),
+          // ── 4. AI Suggestion Card ─────────────────────────────────────
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
+              child: AiSuggestionCardWidget(),
             ),
+          ),
 
-            // ── 4. AI Suggestion Card ─────────────────────────────────────
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: AiSuggestionCardWidget(),
-              ),
+          // ── 5. Subject List ───────────────────────────────────────────
+          SliverPadding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            sliver: SliverList.separated(
+              itemCount: subjects.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                return SubjectListItemWidget(subject: subjects[index]);
+              },
             ),
+          ),
 
-            // ── 5. Subject List ───────────────────────────────────────────
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              sliver: SliverList.separated(
-                itemCount: subjects.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  return SubjectListItemWidget(subject: subjects[index]);
-                },
-              ),
-            ),
-
-            // ── Bottom padding (keeps content above the floating nav bar) ─
-            const SliverToBoxAdapter(child: SizedBox(height: 110)),
-          ],
-        ),
+          // ── Bottom padding (keeps content above the floating nav bar) ─
+          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+        ],
       ),
     );
   }
@@ -125,7 +122,7 @@ class _OverallProgressCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.055),
+            color: Colors.black.withOpacity(0.055),
             blurRadius: 14,
             offset: const Offset(0, 4),
           ),
@@ -194,10 +191,10 @@ class _SegmentedTabBar extends StatelessWidget {
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(30), // Lebih melengkung (curvy)
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -218,7 +215,7 @@ class _SegmentedTabBar extends StatelessWidget {
                   color: isSelected
                       ? AppColors.primaryOrange
                       : Colors.transparent,
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(26),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,

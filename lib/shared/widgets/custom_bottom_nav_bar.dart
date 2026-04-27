@@ -24,6 +24,7 @@ class CustomBottomNavBar extends StatelessWidget {
   static const List<_NavItemData> _items = [
     _NavItemData(icon: Icons.home_rounded, label: 'Home'),
     _NavItemData(icon: Icons.menu_book_rounded, label: 'Study'),
+    _NavItemData(icon: Icons.star_rounded, label: 'Rank'), // Rank Icon
     _NavItemData(icon: Icons.calendar_month_rounded, label: 'Schedule'),
     _NavItemData(icon: Icons.person_rounded, label: 'Profile'),
   ];
@@ -41,7 +42,7 @@ class CustomBottomNavBar extends StatelessWidget {
             borderRadius: BorderRadius.circular(32),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.22),
+                color: Colors.black.withOpacity(0.22),
                 blurRadius: 28,
                 offset: const Offset(0, 10),
               ),
@@ -94,11 +95,11 @@ class _NavBarItem extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 9),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
         decoration: BoxDecoration(
           // Subtle orange pill behind the active icon
           color: isActive
-              ? AppColors.primaryOrange.withValues(alpha: 0.18)
+              ? AppColors.primaryOrange.withOpacity(0.18)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(24),
         ),

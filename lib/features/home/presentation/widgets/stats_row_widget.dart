@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/theme/app_colors.dart';
-import '../../data/home_providers.dart';
+import 'package:studybuddy/core/theme/app_colors.dart';
+import 'package:studybuddy/features/home/data/home_providers.dart';
+import 'package:studybuddy/features/auth/data/models/user_model.dart';
 
 /// Displays the three gamification statistics row on the Home screen:
 /// ⚡ XP Points  |  📊 Ranking  |  ⭐ Presence
@@ -16,7 +17,19 @@ class StatsRowWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(userProvider);
+    final userAsync = ref.watch(userProvider);
+    final user = userAsync.value ?? UserModel(
+      id: '',
+      email: '',
+      name: 'Student',
+      gradeLevel: '12',
+      xpPoints: 0,
+      rank: 1,
+      presencePercentage: 0,
+      targetUniversity: 'Universitas Indonesia',
+      fireStreak: 0,
+      createdAt: DateTime.now(),
+    );
 
     return Row(
       children: [

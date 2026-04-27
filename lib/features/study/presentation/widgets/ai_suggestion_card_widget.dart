@@ -38,12 +38,20 @@ class AiSuggestionCardWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.aiSuggestionBg,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.aiSuggestionBorder, width: 1.5),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.aiSuggestionBg,
+            AppColors.aiSuggestionBg.withOpacity(0.6),
+            const Color(0xFFFFEDD5), // Light orange tint
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppColors.aiSuggestionBorder.withOpacity(0.3), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: AppColors.aiSuggestionIcon.withValues(alpha: 0.08),
+            color: AppColors.aiSuggestionIcon.withOpacity(0.08),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -57,7 +65,7 @@ class AiSuggestionCardWidget extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: AppColors.aiSuggestionIcon.withValues(alpha: 0.15),
+              color: AppColors.aiSuggestionIcon.withOpacity(0.15),
               shape: BoxShape.circle,
             ),
             child: const Icon(

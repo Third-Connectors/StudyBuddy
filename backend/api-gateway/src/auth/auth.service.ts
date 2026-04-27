@@ -9,7 +9,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
 
-import { User } from "../user/entities/user.entity";
+import { User, UserRole } from "../user/entities/user.entity";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { LoginDto } from "./dto/login.dto";
 import { AuthResponseDto } from "./dto/auth-response.dto";
@@ -44,7 +44,7 @@ export class AuthService {
       email: createUserDto.email,
       passwordHash,
       name: createUserDto.name,
-      role: "student",
+      role: UserRole.STUDENT,
       schoolName: createUserDto.schoolName,
       gradeLevel: createUserDto.gradeLevel,
       emailVerified: false,

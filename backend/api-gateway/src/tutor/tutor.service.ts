@@ -5,12 +5,12 @@ import { Model } from 'mongoose';
 import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 
-import { TutorSession } from '../config/database/mongodb-schema';
+import { ITutorSession } from '../config/database/mongodb-schema';
 
 @Injectable()
 export class TutorService {
   constructor(
-    @InjectModel('TutorSession') private sessionModel: Model<TutorSession>,
+    @InjectModel('TutorSession') private sessionModel: Model<ITutorSession>,
     private httpService: HttpService,
     private configService: ConfigService,
   ) {}

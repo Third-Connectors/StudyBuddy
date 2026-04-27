@@ -3,7 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import helmet from 'helmet';
-import compression from 'compression';
+import * as compression from 'compression';
 
 import { AppModule } from './app.module';
 
@@ -15,7 +15,7 @@ async function bootstrap() {
   // ── Security ──────────────────────────────────────────────────────────────
   app.use(helmet());
   app.enableCors({
-    origin: configService.get<string>('CORS_ORIGIN', '*'),
+    origin: true, // Reflects the request origin, bypassing wildcard + credentials restriction
     credentials: true,
   });
 

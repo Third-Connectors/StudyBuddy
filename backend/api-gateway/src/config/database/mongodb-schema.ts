@@ -286,7 +286,7 @@ const OcrScanSchema = new Schema<IOcrScan>({
   userId: { type: String, required: true, index: true },
   imageUrl: { type: String, required: true },
   rawText: { type: String, required: true },
-  extractedSchedules: { type: Array, required: true },
+  extractedSchedules: { type: [Schema.Types.Mixed], default: [] } as any,
   processedAt: { type: Date, default: Date.now },
   confidence: { type: Number, default: 0 },
 });

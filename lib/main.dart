@@ -1,31 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'firebase_options.dart';
+import 'core/services/local_storage_service.dart';
 
 import 'core/theme/app_theme.dart';
+import 'core/services/notification_service.dart';
+import 'features/auth/presentation/login_screen.dart';
 import 'features/main_navigation/presentation/main_navigation_screen.dart';
 import 'features/onboarding/presentation/onboarding_screen_1.dart';
 import 'features/onboarding/presentation/onboarding_screen_2.dart';
 import 'features/onboarding/presentation/onboarding_ptn_screen.dart';
+import 'features/onboarding/presentation/onboarding_vak_screen.dart';
+import 'features/onboarding/presentation/onboarding_complete_screen.dart';
 
-/// Entry point for Study Buddy.
+/// Entry point untuk Study Buddy.
 ///
 /// Bootstrap order:
 /// 1. [WidgetsFlutterBinding.ensureInitialized] — safe async setup
-/// 2. Lock orientation to portrait (mobile-first design)
-/// 3. Configure the system status bar to be transparent with dark icons
-/// 4. Wrap everything in [ProviderScope] so Riverpod providers are available
-///    throughout the entire widget tree
-void main() {
+/// 2. Initialize Firebase (for push notifications)
+/// 3. Initialize Supabase (for backend, auth, database)
+/// 4. Initialize Notification Service
+/// 5. Lock orientation to portrait
+/// 6. Configure system UI
+/// 7. Wrap in [ProviderScope] for Riverpod
+void main() async {
+  // 1. Initialize Flutter bindings
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ── Portrait-only orientation ────────────────────────────────────────────
+  // 2. 🔥 Initialize Firebase
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // 2.5. 💾 Initialize Local Storage
+  await LocalStorageService.init();
+
+  // 3. ⚡ Initialize Supabase
+  await Supabase.initialize(
+    url: 'https://jxyfjgfupqeutedtsjge.supabase.co',
+    anonKey: 'sb_publishable_uQzHGK8HPIYLm55BUtp7xQ_pSqzq-pJ',
+  );
+
+  // 4. 📬 Initialize Notification Service
+  await NotificationService.instance.initialize();
+  await NotificationService.instance.requestPermission();
+
+  // 5. ── Portrait-only orientation ──────────────────────────────────────
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
   ]);
 
-  // ── Transparent status bar with dark (readable) icons ───────────────────
+  // 6. ── Transparent status bar with dark (readable) icons ───────────────
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -39,10 +66,8 @@ void main() {
   // Enable edge-to-edge rendering on Android (draws behind nav bar)
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-  runApp(
-    // ProviderScope is the root Riverpod container — all providers live here.
-    const ProviderScope(child: StudyBuddyApp()),
-  );
+  // 7. Run app
+  runApp(const ProviderScope(child: StudyBuddyApp()));
 }
 
 /// Root [MaterialApp] widget for Study Buddy.
@@ -59,6 +84,9 @@ class StudyBuddyApp extends StatelessWidget {
     '/onboarding1': (_) => const OnboardingScreen1(),
     '/onboarding2': (_) => const OnboardingScreen2(),
     '/onboarding_ptn': (_) => const OnboardingPtnScreen(),
+    '/vak_test': (_) => const OnboardingVakScreen(),
+    '/onboarding_complete': (_) => const OnboardingCompleteScreen(),
+    '/login': (_) => const LoginScreen(),
     '/home': (_) => const MainNavigationScreen(),
   };
 

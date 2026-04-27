@@ -29,7 +29,7 @@ Study Buddy is an AI-powered EdTech platform for Indonesian high school students
 | Repository | Status | API Integration |
 |------------|--------|-----------------|
 | **Auth Repository** | ✅ Complete | NestJS backend endpoints |
-| **Tutor Repository** | ✅ Complete | Google Gemini API (direct) |
+| **Tutor Repository** | ✅ Complete | Gemini API (in-quiz hint) |
 | **Schedule Repository** | ✅ Complete | Gemini Vision OCR |
 | **VAK Repository** | ✅ Complete | ML Service + Local fallback |
 | **Quiz Repository** | ✅ Complete | Backend API endpoints |
@@ -222,7 +222,7 @@ flutter run
 | Google Gemini | ✅ | Integrated | API key configured |
 | **AI Features** | | | |
 | VAK Classification (KNN) | ✅ | Complete | Python ML service |
-| Socratic Tutor | ✅ | Complete | Gemini API |
+| Socratic Tutor (In-Quiz Hint) | ✅ | Complete | Gemini API — hint system |
 | Schedule Scanner (OCR) | ✅ | Complete | Gemini Vision |
 | Genetic Algorithm | ✅ | Complete | Schedule optimization |
 | **Security** | | | |

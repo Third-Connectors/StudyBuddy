@@ -10,67 +10,56 @@
 // Blueprint: NestJS API Gateway with JWT authentication
 // ════════════════════════════════════════════════════════════════════════════
 
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'local_storage_service.dart';
 
-/// Secure authentication service for managing JWT tokens.
-///
-/// Uses flutter_secure_storage for encrypted token storage:
-/// - Android: EncryptedSharedPreferences
-/// - iOS: Keychain
+/// Authentication service managing sessions via SharedPreferences.
 class AuthService {
-  final FlutterSecureStorage _storage;
+  final LocalStorageService _storage;
 
-  /// Keys for secure storage
+  /// Keys for storage
   static const String _accessTokenKey = 'access_token';
   static const String _refreshTokenKey = 'refresh_token';
   static const String _userIdKey = 'user_id';
+  static const String _isLoggedInKey = 'is_logged_in';
 
-  AuthService() : _storage = const FlutterSecureStorage();
+  AuthService() : _storage = localStorageProvider;
 
-  /// Save authentication tokens after successful login.
+  /// Save authentication tokens and update login status.
   Future<void> saveTokens({
     required String accessToken,
     required String refreshToken,
     String? userId,
   }) async {
-    await _storage.write(key: _accessTokenKey, value: accessToken);
-    await _storage.write(key: _refreshTokenKey, value: refreshToken);
+    await _storage.setString(_accessTokenKey, accessToken);
+    await _storage.setString(_refreshTokenKey, refreshToken);
+    await _storage.setBool(_isLoggedInKey, true);
     if (userId != null) {
-      await _storage.write(key: _userIdKey, value: userId);
+      await _storage.setString(_userIdKey, userId);
     }
   }
 
   /// Get the access token for API requests.
-  Future<String?> getAccessToken() async {
-    return await _storage.read(key: _accessTokenKey);
-  }
-
-  /// Get the refresh token for token renewal.
-  Future<String?> getRefreshToken() async {
-    return await _storage.read(key: _refreshTokenKey);
-  }
+  String? getAccessToken() => _storage.getString(_accessTokenKey);
 
   /// Get the stored user ID.
-  Future<String?> getUserId() async {
-    return await _storage.read(key: _userIdKey);
-  }
+  String? getUserId() => _storage.getString(_userIdKey);
 
   /// Check if user is authenticated (has valid tokens).
-  Future<bool> isAuthenticated() async {
-    final accessToken = await getAccessToken();
-    return accessToken != null && accessToken.isNotEmpty;
+  bool isAuthenticated() {
+    return _storage.getBool(_isLoggedInKey) && (getAccessToken()?.isNotEmpty ?? false);
   }
 
-  /// Clear all tokens (logout).
+  /// Clear all tokens and update login status (logout).
   Future<void> clearTokens() async {
-    await _storage.delete(key: _accessTokenKey);
-    await _storage.delete(key: _refreshTokenKey);
-    await _storage.delete(key: _userIdKey);
+    await _storage.remove(_accessTokenKey);
+    await _storage.remove(_refreshTokenKey);
+    await _storage.remove(_userIdKey);
+    await _storage.setBool(_isLoggedInKey, false);
   }
 
   /// Delete a specific key (for testing/debugging).
   Future<void> deleteKey(String key) async {
-    await _storage.delete(key: key);
+    await _storage.remove(key);
   }
 
   /// Check if token is expired (basic check).

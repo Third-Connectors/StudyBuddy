@@ -19,13 +19,13 @@ abstract final class AppColors {
 
   // ── Background ───────────────────────────────────────────────────────────
   /// Warm cream — the main scaffold background across all app screens.
-  static const Color backgroundCream = Color(0xFFF5F0E8);
+  static const Color backgroundCream = Color(0xFFFFF6E5);
 
   /// Pure white — card surfaces, modal sheets, form containers.
   static const Color surfaceWhite = Color(0xFFFFFFFF);
 
   /// Light periwinkle blue — top-half background of Onboarding Screen 1.
-  static const Color onboardingTopBlue = Color(0xFFC0CEDF);
+  static const Color onboardingTopBlue = Color(0xFF89B0F3);
 
   // ── Text ─────────────────────────────────────────────────────────────────
   /// Near-black — primary headings, body copy, and important labels.
@@ -92,12 +92,12 @@ abstract final class AppColors {
 
   // ── Stat Card Icon Backgrounds ────────────────────────────────────────────
   static const Color statXpBg = Color(0xFFFFF8EC); // Amber tint
-  static const Color statRankBg = Color(0xFFEFF6FF); // Blue tint
-  static const Color statPresenceBg = Color(0xFFF5F3FF); // Purple tint
+  static const Color statRankBg = Color(0xFFD1FAE5); // Green tint
+  static const Color statPresenceBg = Color(0xFFEFF6FF); // Blue tint
 
   static const Color statXpIcon = Color(0xFFF59E0B);
-  static const Color statRankIcon = Color(0xFF3B82F6);
-  static const Color statPresenceIcon = Color(0xFF8B5CF6);
+  static const Color statRankIcon = Color(0xFF10B981); // Green
+  static const Color statPresenceIcon = Color(0xFF3B82F6); // Blue
 
   // ── Utility ───────────────────────────────────────────────────────────────
   /// Standard 1 px divider line.

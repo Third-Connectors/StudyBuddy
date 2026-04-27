@@ -97,7 +97,10 @@ class _OnboardingPtnScreenState extends State<OnboardingPtnScreen> {
     if (_formKey.currentState!.validate()) {
       // TODO: simpan _selectedUniversitas & _selectedJurusan ke provider / repo
       // sebelum melanjutkan ke home.
-      Navigator.of(context).pushNamedAndRemoveUntil('/home', (route) => false);
+      Navigator.of(context).pushNamed(
+        '/vak_test',
+        arguments: {'currentStep': 3, 'totalSteps': 4},
+      );
     }
   }
 
@@ -174,7 +177,7 @@ class _OnboardingPtnScreenState extends State<OnboardingPtnScreen> {
         border: Border.all(color: AppColors.divider),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withOpacity(0.05),
             blurRadius: 20,
             offset: const Offset(0, 6),
           ),
@@ -245,7 +248,7 @@ class _OnboardingPtnScreenState extends State<OnboardingPtnScreen> {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: const Color(0xFF6366F1).withValues(alpha: 0.12),
+              color: const Color(0xFF6366F1).withOpacity(0.12),
               shape: BoxShape.circle,
             ),
             child: const Icon(

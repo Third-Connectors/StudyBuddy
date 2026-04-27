@@ -1,432 +1,541 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../study/presentation/vak_assessment_screen.dart';
-import '../../study/presentation/tutor_chat_screen.dart';
-import '../../study/presentation/schedule_scanner_screen.dart';
-import '../../leaderboard/presentation/leaderboard_screen.dart';
-import '../../profile/presentation/profile_screen.dart';
+import '../../../core/theme/app_colors.dart';
+import '../data/home_providers.dart';
+import '../domain/models/user_stats_model.dart';
+import 'package:studybuddy/features/auth/data/models/user_model.dart';
+import '../domain/models/daily_mission_model.dart';
+import '../domain/models/study_material_model.dart';
 
-/// Main navigation screen with bottom navigation bar.
-class MainNavigationScreen extends ConsumerStatefulWidget {
-  const MainNavigationScreen({super.key});
-
-  @override
-  ConsumerState<MainNavigationScreen> createState() =>
-      _MainNavigationScreenState();
-}
-
-class _MainNavigationScreenState extends ConsumerState<MainNavigationScreen> {
-  int _currentIndex = 0;
-
-  final List<Widget> _screens = [
-    const HomeScreen(),
-    const VakAssessmentScreen(),
-    const TutorChatScreen(),
-    const ScheduleScannerScreen(),
-    const LeaderboardScreen(),
-    const ProfileScreen(),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: IndexedStack(index: _currentIndex, children: _screens),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
-        elevation: 8,
-        shadowColor: Colors.black26,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home, color: Colors.white),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.psychology_outlined),
-            selectedIcon: Icon(Icons.psychology, color: Colors.white),
-            label: 'VAK',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.chat_outlined),
-            selectedIcon: Icon(Icons.chat, color: Colors.white),
-            label: 'Tutor',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.document_scanner_outlined),
-            selectedIcon: Icon(Icons.document_scanner, color: Colors.white),
-            label: 'Jadwal',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.leaderboard_outlined),
-            selectedIcon: Icon(Icons.leaderboard, color: Colors.white),
-            label: 'Ranking',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person, color: Colors.white),
-            label: 'Profil',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Home screen dashboard.
-class HomeScreen extends StatelessWidget {
+/// Home screen dashboard matching the design.
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  late Timer _timer;
+  late Duration _timeUntilUTBK;
+
+  @override
+  void initState() {
+    super.initState();
+    _calculateTimeUntilUTBK();
+    _timer = Timer.periodic(const Duration(minutes: 1), (timer) {
+      if (mounted) {
+        setState(() {
+          _calculateTimeUntilUTBK();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  void _calculateTimeUntilUTBK() {
+    final now = DateTime.now();
+    var targetDate = DateTime(now.year, 4, 21);
+    if (now.isAfter(targetDate)) {
+      targetDate = DateTime(now.year + 1, 4, 21);
+    }
+    _timeUntilUTBK = targetDate.difference(now);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Study Buddy'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {
-              // TODO: Show notifications
-            },
-            tooltip: 'Notifikasi',
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+    final statsAsync = ref.watch(userStatsProvider);
+    final userAsync = ref.watch(userProvider);
+    final missionsAsync = ref.watch(dailyMissionsProvider);
+    final materialsAsync = ref.watch(studyMaterialsProvider);
+
+    final stats = statsAsync.value ?? const UserStats(streak: 0, xp: 0, rank: 0, presence: '0%');
+    final user = userAsync.value ?? UserModel(
+      id: '',
+      email: '',
+      name: 'Student',
+      gradeLevel: '12',
+      xpPoints: 0,
+      rank: 1,
+      presencePercentage: 0,
+      targetUniversity: 'Universitas Indonesia',
+      fireStreak: 0,
+      createdAt: DateTime.now(),
+    );
+
+    final greetingData = _getGreeting();
+    
+    final days = _timeUntilUTBK.inDays.toString();
+    final hours = (_timeUntilUTBK.inHours % 24).toString();
+    final minutes = (_timeUntilUTBK.inMinutes % 60).toString();
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 120),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Welcome card
-            _buildWelcomeCard(context),
-
-            const SizedBox(height: 24),
-
-            // Quick stats
+            // ── 1. Greeting Header ──────────────────────────────────────
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _buildStatCard(
-                    context,
-                    '📚',
-                    'Quiz',
-                    '12',
-                    Colors.blue,
-                  ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Welcome, ${greetingData['text']}',
+                      style: GoogleFonts.nunito(
+                        fontSize: 14,
+                        color: AppColors.textLight,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '${user.name}! ${greetingData['emoji']}',
+                      style: GoogleFonts.nunito(
+                        fontSize: 24,
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryOrangeLighter,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        'Class ${user.gradeLevel}',
+                        style: GoogleFonts.nunito(
+                          fontSize: 12,
+                          color: AppColors.primaryOrange,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    context,
-                    '🏆',
-                    'XP',
-                    '1,250',
-                    Colors.orange,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryOrangeLighter,
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    context,
-                    '🔥',
-                    'Streak',
-                    '5 Hari',
-                    Colors.red,
+                  child: Row(
+                    children: [
+                      _buildStreakFire(stats.streak),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${stats.streak}',
+                        style: GoogleFonts.nunito(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: _getStreakColor(stats.streak),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 24),
 
-            // Main features
-            const Text(
-              'Fitur Utama',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 16),
-
-            _buildFeatureCard(
-              context,
-              '🧠',
-              'Tes Gaya Belajar',
-              'Temukan cara belajar yang paling efektif untukmu',
-              Colors.purple,
-              () => _navigateToTab(context, 1),
-            ),
-
-            const SizedBox(height: 12),
-
-            _buildFeatureCard(
-              context,
-              '🤖',
-              'Socratic Tutor AI',
-              'Belajar dengan AI yang tidak memberi jawaban langsung',
-              Colors.blue,
-              () => _navigateToTab(context, 2),
-            ),
-
-            const SizedBox(height: 12),
-
-            _buildFeatureCard(
-              context,
-              '📸',
-              'Scan Jadwal',
-              'Foto jadwal pelajaran, ekstrak otomatis',
-              Colors.green,
-              () => _navigateToTab(context, 3),
-            ),
-
-            const SizedBox(height: 12),
-
-            _buildFeatureCard(
-              context,
-              '📝',
-              'Latihan Soal',
-              'Ribuan soal latihan untuk semua mata pelajaran',
-              Colors.orange,
-              () {
-                // TODO: Navigate to quiz screen
-              },
-            ),
-
-            const SizedBox(height: 24),
-
-            // Upcoming section
-            const Text(
-              'Mendatang',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-
-            const SizedBox(height: 16),
-
-            _buildUpcomingCard(
-              context,
-              'Ujian Matematika',
-              'Besok, 08:00',
-              Colors.red,
-            ),
-
-            const SizedBox(height: 12),
-
-            _buildUpcomingCard(
-              context,
-              'Tugas Fisika',
-              '3 hari lagi',
-              Colors.orange,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWelcomeCard(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).primaryColor,
-            Theme.of(context).primaryColor.withOpacity(0.7),
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Theme.of(context).primaryColor.withOpacity(0.3),
-            blurRadius: 15,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white24,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text('👋', style: TextStyle(fontSize: 24)),
+            // ── 2. UTBK SNBT Card ───────────────────────────────────────
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.primaryOrange,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primaryOrange.withOpacity(0.3),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Halo, Student!',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    SizedBox(height: 4),
-                    Text(
-                      'Siap belajar hari ini?',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () => _navigateToTab(context, 2),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Theme.of(context).primaryColor,
-                padding: const EdgeInsets.all(16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Column(
                 children: [
-                  Icon(Icons.school),
-                  SizedBox(width: 8),
-                  Text(
-                    'Mulai Belajar dengan AI Tutor',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.track_changes_outlined, color: Colors.white, size: 16),
+                          const SizedBox(width: 6),
+                          Text(
+                            'UTBK SNBT ${_timeUntilUTBK.inDays < 0 ? DateTime.now().year : DateTime.now().year + (DateTime.now().month > 4 || (DateTime.now().month == 4 && DateTime.now().day > 21) ? 1 : 0)}',
+                            style: GoogleFonts.nunito(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          Text(
+                            'SNBT Practice',
+                            style: GoogleFonts.nunito(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const Icon(Icons.chevron_right, color: Colors.white, size: 16),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      _buildTimeBox(days, 'Day'),
+                      const SizedBox(width: 16),
+                      _buildTimeBox(hours, 'Hour'),
+                      const SizedBox(width: 16),
+                      _buildTimeBox(minutes, 'Minute'),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.school_outlined, color: Colors.white, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Target: ${user.targetUniversity}',
+                            style: GoogleFonts.nunito(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+
+            // ── 3. Quick Stats ──────────────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    icon: Icons.bolt_rounded,
+                    iconColor: AppColors.statXpIcon,
+                    iconBg: AppColors.statXpBg,
+                    value: stats.xp.toString(),
+                    label: 'XP Point',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    icon: Icons.trending_up_rounded,
+                    iconColor: AppColors.statRankIcon,
+                    iconBg: AppColors.statRankBg,
+                    value: 'Rank ${stats.rank}',
+                    label: 'Ranking',
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    icon: Icons.star_rounded,
+                    iconColor: AppColors.statPresenceIcon,
+                    iconBg: AppColors.statPresenceBg,
+                    value: stats.presence,
+                    label: 'Presence',
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // ── 4. Daily Missions ───────────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Daily Missions',
+                  style: GoogleFonts.nunito(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                Text(
+                  'See All',
+                  style: GoogleFonts.nunito(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            missionsAsync.when(
+              data: (missions) => missions.isEmpty 
+                  ? _buildEmptyState('No missions yet!')
+                  : Column(
+                      children: missions.map((m) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildQuizItem(
+                          subject: m.title,
+                          status: m.isCompleted ? 'Done' : 'To do',
+                          statusColor: m.isCompleted ? AppColors.statusDoneText : AppColors.statusToDoText,
+                          statusBg: m.isCompleted ? AppColors.statusDoneBg : const Color(0xFFF3F4F6),
+                          iconBg: (m.subject == 'Biologi' ? Colors.green : Colors.blue).withValues(alpha: 0.12),
+                          icon: m.subject == 'Biologi' ? Icons.eco_rounded : Icons.psychology_rounded,
+                          iconColor: m.subject == 'Biologi' ? Colors.green : Colors.blue,
+                        ),
+                      )).toList(),
+                    ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Text('Error: $err'),
+            ),
+
+            const SizedBox(height: 32),
+
+            // ── 5. Study Materials ──────────────────────────────────────
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Study Materials',
+                  style: GoogleFonts.nunito(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            materialsAsync.when(
+              data: (materials) => materials.isEmpty
+                  ? _buildEmptyState('No materials shared yet!')
+                  : Column(
+                      children: materials.map((m) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _buildMaterialCard(m),
+                      )).toList(),
+                    ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Text('Error: $err'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildStatCard(
-    BuildContext context,
-    String icon,
-    String label,
-    String value,
-    Color color,
-  ) {
+  Widget _buildTimeBox(String value, String label) {
+    return Column(
+      children: [
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: Text(
+              value,
+              style: GoogleFonts.nunito(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: GoogleFonts.nunito(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String value,
+    required String label,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: AppColors.divider),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.cardShadow,
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          Text(icon, style: const TextStyle(fontSize: 24)),
-          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: iconBg,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(height: 12),
           Text(
             value,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: GoogleFonts.nunito(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
           ),
-          const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: GoogleFonts.nunito(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildFeatureCard(
-    BuildContext context,
-    String icon,
-    String title,
-    String description,
-    Color color,
-    VoidCallback onTap,
-  ) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.grey[200]!),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Center(
-                child: Text(icon, style: const TextStyle(fontSize: 28)),
-              ),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    description,
-                    style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-            Icon(Icons.chevron_right, color: Colors.grey[400], size: 28),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildUpcomingCard(
-    BuildContext context,
-    String title,
-    String subtitle,
-    Color color,
-  ) {
+  Widget _buildQuizItem({
+    required String subject,
+    required String status,
+    required Color statusColor,
+    required Color statusBg,
+    required Color iconBg,
+    required IconData icon,
+    required Color iconColor,
+  }) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: statusBg == AppColors.statusInProgressBg ? AppColors.primaryOrangeLight : AppColors.divider),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.cardShadow,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            width: 48,
+            height: 48,
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: iconBg,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(Icons.event, color: color),
+            child: Icon(icon, color: iconColor, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              subject,
+              style: GoogleFonts.nunito(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: AppColors.textPrimary,
+              ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusBg,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(
+              status,
+              style: GoogleFonts.nunito(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: statusColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMaterialCard(StudyMaterial m) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.divider),
+        boxShadow: const [
+          BoxShadow(
+            color: AppColors.cardShadow,
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: AppColors.primaryOrangeLighter,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.description_outlined, color: AppColors.primaryOrange, size: 22),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -434,41 +543,101 @@ class HomeScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  title,
-                  style: const TextStyle(
+                  m.topic,
+                  style: GoogleFonts.nunito(
                     fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-                const SizedBox(height: 4),
                 Text(
-                  subtitle,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  m.subject,
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
           ),
-          Icon(Icons.chevron_right, color: Colors.grey[400]),
+          const Icon(Icons.arrow_forward_ios, color: AppColors.divider, size: 14),
         ],
       ),
     );
   }
 
-  void _navigateToTab(BuildContext context, int index) {
-    final screens = [
-      null, // Home
-      const VakAssessmentScreen(),
-      const TutorChatScreen(),
-      const ScheduleScannerScreen(),
-      const LeaderboardScreen(),
-      const ProfileScreen(),
-    ];
+  Widget _buildEmptyState(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.blueGrey.shade50,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.blueGrey.shade100),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.inbox_outlined, color: Colors.blueGrey.shade300, size: 40),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            style: GoogleFonts.nunito(
+              color: Colors.blueGrey.shade400,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
-    if (index > 0 && screens[index] != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => screens[index]!),
-      );
+  Widget _buildStreakFire(int streak) {
+    List<Color> gradientColors;
+    if (streak < 7) {
+      gradientColors = [Colors.red, Colors.orange];
+    } else if (streak < 14) {
+      gradientColors = [Colors.orange, Colors.yellow];
+    } else if (streak < 30) {
+      gradientColors = [Colors.yellow, Colors.white];
+    } else if (streak < 60) {
+      gradientColors = [Colors.cyanAccent, Colors.blueAccent];
+    } else {
+      gradientColors = [Colors.blueAccent, Colors.purpleAccent];
+    }
+
+    return ShaderMask(
+      shaderCallback: (bounds) => LinearGradient(
+        colors: gradientColors,
+        begin: Alignment.bottomCenter,
+        end: Alignment.topCenter,
+      ).createShader(bounds),
+      child: const Icon(
+        Icons.whatshot_rounded,
+        size: 18,
+        color: Colors.white,
+      ),
+    );
+  }
+
+  Color _getStreakColor(int streak) {
+    if (streak < 7) return Colors.red;
+    if (streak < 14) return Colors.orange;
+    if (streak < 30) return const Color(0xFFF59E0B);
+    if (streak < 60) return Colors.blueAccent;
+    return Colors.purpleAccent;
+  }
+
+  Map<String, String> _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour >= 5 && hour < 12) {
+      return {'text': 'Good Morning', 'emoji': '👋'};
+    } else if (hour >= 12 && hour < 17) {
+      return {'text': 'Good Afternoon', 'emoji': '☀️'};
+    } else if (hour >= 17 && hour < 21) {
+      return {'text': 'Good Evening', 'emoji': '🌆'};
+    } else {
+      return {'text': "It's time to sleep", 'emoji': '🌙'};
     }
   }
 }

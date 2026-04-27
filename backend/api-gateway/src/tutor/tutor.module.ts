@@ -4,7 +4,7 @@ import { HttpModule } from '@nestjs/axios';
 
 import { TutorController } from './tutor.controller';
 import { TutorService } from './tutor.service';
-import { TutorSession, TutorMessage } from '../config/database/mongodb-schema';
+import { TutorSession } from '../config/database/mongodb-schema';
 
 @Module({
   imports: [
