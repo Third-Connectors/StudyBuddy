@@ -102,7 +102,7 @@ class ScheduleNotifier extends StateNotifier<ScheduleState> {
 
     // OPTIMISTIC UPDATE: Langsung masukkan ke list lokal agar user tidak menunggu
     final updatedSchedules = [...state.schedules, ...newSchedules];
-    
+
     state = state.copyWith(
       schedules: updatedSchedules,
       isSaving: false,
@@ -115,7 +115,9 @@ class ScheduleNotifier extends StateNotifier<ScheduleState> {
       for (final schedule in newSchedules) {
         // Kita tidak memakai 'await' di sini agar proses loop tidak terhenti oleh timeout
         _scheduleRepository.addSchedule(schedule).catchError((e) {
-          debugPrint('[ScheduleNotifier] Background save failed for ${schedule.subject}: $e');
+          debugPrint(
+            '[ScheduleNotifier] Background save failed for ${schedule.subject}: $e',
+          );
           return schedule;
         });
       }
@@ -134,7 +136,9 @@ class ScheduleNotifier extends StateNotifier<ScheduleState> {
         state = state.copyWith(schedules: schedules);
       }
     } catch (e) {
-      debugPrint('[ScheduleNotifier] Load failed, using local/dummy fallback: $e');
+      debugPrint(
+        '[ScheduleNotifier] Load failed, using local/dummy fallback: $e',
+      );
       // Jika gagal, biarkan jadwal yang sudah ada di state (hasil scan tadi) tetap tampil
       if (state.schedules.isEmpty) {
         // Hanya tambahkan dummy jika list benar-benar kosong
@@ -185,11 +189,14 @@ class ScheduleNotifier extends StateNotifier<ScheduleState> {
     state = state.copyWith(ocrResult: null, selectedImage: null, error: null);
   }
 
-  /// Generate optimized study schedule.
+  /// Generate optimized study schedule using Gemini AI.
+  ///
+  /// [vakStyle] defaults to 'Visual' if the caller doesn't supply it;
+  /// pass the actual value from the user's VAK profile when available.
   Future<void> generateOptimizedSchedule({
     required String userId,
     required List<String> difficultSubjects,
-    required List<DateTime> upcomingExams,
+    String vakStyle = 'Visual',
   }) async {
     state = state.copyWith(isScanning: true, error: null);
 
@@ -197,9 +204,9 @@ class ScheduleNotifier extends StateNotifier<ScheduleState> {
       final optimizedSchedules = await _scheduleRepository
           .generateOptimizedStudySchedule(
             userId: userId,
-            schoolSchedule: state.schedules,
-            difficultSubjects: difficultSubjects,
-            upcomingExams: upcomingExams,
+            vakStyle: vakStyle,
+            existingSchedule: state.schedules,
+            weakSubjects: difficultSubjects,
           );
 
       state = state.copyWith(

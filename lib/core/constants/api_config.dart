@@ -78,6 +78,35 @@ SUBJECTS: Matematika, Fisika, Kimia, Biologi, Bahasa Indonesia,
           Bahasa Inggris, Sejarah, Geografi, Sosiologi, Ekonomi,
           PKN, Agama, Olahraga, Seni Budaya, TIK''';
 
+  // ── MongoDB Atlas Data API ─────────────────────────────────────────────────
+
+  /// 🍃 MongoDB Atlas Data API Base URL
+  ///
+  /// Setup:
+  /// 1. Go to https://cloud.mongodb.com → Your Project → App Services
+  /// 2. Create a new App → Data API tab → Enable Data API
+  /// 3. Copy the App ID (format: data-abcde)
+  /// 4. Replace 'YOUR_APP_ID' below with your App ID
+  static const String mongoAtlasBaseUrl =
+      'https://data.mongodb-api.com/app/YOUR_APP_ID/endpoint/data/v1';
+
+  /// 🔑 MongoDB Atlas Data API Key
+  ///
+  /// 1. In App Services → API Keys → Create API Key
+  /// 2. Replace with your key
+  static const String mongoAtlasApiKey = 'YOUR_ATLAS_API_KEY';
+
+  /// Atlas cluster name (usually 'Cluster0')
+  static const String mongoAtlasDataSource = 'Cluster0';
+
+  /// Atlas database name
+  static const String mongoAtlasDatabase = 'studybuddy';
+
+  /// Collections
+  static const String colQuestions = 'questions';
+  static const String colQuizResults = 'quiz_results';
+  static const String colTutorSessions = 'tutor_sessions';
+
   // ── Firebase Configuration ────────────────────────────────────────────────
 
   /// 🔌 TODO: Configure Firebase for push notifications

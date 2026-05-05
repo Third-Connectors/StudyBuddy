@@ -39,7 +39,7 @@ class ScheduleRepository {
   final ApiClient _apiClient;
   final ApiClient _geminiClient;
   final ImagePicker _imagePicker;
-  
+
   // Local cache to keep data when server is down
   static final List<ScheduleEntry> _localCache = [];
 
@@ -167,9 +167,9 @@ Catatan:
   /// TODO: Fetch from MongoDB via backend.
   Future<List<ScheduleEntry>> getSchedules(String userId) async {
     try {
-      final response = await _apiClient.get(
-        '${ApiEndpoints.schedule}?userId=$userId',
-      ).timeout(const Duration(seconds: 5)); // Fail fast!
+      final response = await _apiClient
+          .get('${ApiEndpoints.schedule}?userId=$userId')
+          .timeout(const Duration(seconds: 5)); // Fail fast!
 
       final schedules = response['schedules'] as List?;
       if (schedules == null) return _localCache;
@@ -177,11 +177,11 @@ Catatan:
       final results = schedules
           .map((s) => ScheduleEntry.fromJson(s as Map<String, dynamic>))
           .toList();
-      
+
       // Sync local cache with server data if available
       _localCache.clear();
       _localCache.addAll(results);
-      
+
       return results;
     } catch (e) {
       debugPrint('[ScheduleRepository] Get schedules error (using local): $e');
@@ -199,16 +199,17 @@ Catatan:
     }
 
     try {
-      final response = await _apiClient.post(
-        ApiEndpoints.schedule,
-        schedule.toJson(),
-      ).timeout(const Duration(seconds: 3)); // Fail fast!
+      final response = await _apiClient
+          .post(ApiEndpoints.schedule, schedule.toJson())
+          .timeout(const Duration(seconds: 3)); // Fail fast!
 
       return ScheduleEntry.fromJson(
         response['schedule'] as Map<String, dynamic>,
       );
     } catch (e) {
-      debugPrint('[ScheduleRepository] Add schedule error (stored locally): $e');
+      debugPrint(
+        '[ScheduleRepository] Add schedule error (stored locally): $e',
+      );
       return schedule;
     }
   }
@@ -247,48 +248,141 @@ Catatan:
 
   /// Generate optimized study schedule using Genetic Algorithm.
   ///
-  /// This method calls the ML Service (FastAPI) for optimization.
+  /// Generate an optimized study schedule using Google Gemini AI.
   ///
-  /// [userId] - User identifier
-  /// [schoolSchedule] - User's existing school schedule
-  /// [difficultSubjects] - Subjects user finds difficult
-  /// [upcomingExams] - List of upcoming exam dates
-  /// [vakStyle] - User's VAK learning style (optional)
+  /// Previously used a Python Genetic Algorithm server (FastAPI/ML service).
+  /// Now fully serverless — sends user data to Gemini and parses the JSON
+  /// schedule it returns. No external server needed.
+  ///
+  /// [userId]            — Supabase user ID
+  /// [vakStyle]          — VAK learning style: 'Visual', 'Auditory', 'Kinesthetic'
+  /// [existingSchedule]  — User's current school schedule (used to extract subjects)
+  /// [weakSubjects]      — Subjects to prioritise (optional)
+  /// [studyHoursPerDay]  — Max daily self-study time in hours (default 3)
   Future<List<ScheduleEntry>> generateOptimizedStudySchedule({
     required String userId,
-    required List<ScheduleEntry> schoolSchedule,
-    required List<String> difficultSubjects,
-    required List<DateTime> upcomingExams,
-    String? vakStyle,
+    required String vakStyle,
+    required List<ScheduleEntry> existingSchedule,
+    List<String>? weakSubjects,
+    int studyHoursPerDay = 3,
   }) async {
     try {
-      // Call ML Service (FastAPI) for optimization
-      final response = await _apiClient
-          .post('${ApiConfig.mlServiceUrl}/schedule/optimize', {
-            'userId': userId,
-            'schoolSchedule': schoolSchedule.map((s) => s.toJson()).toList(),
-            'difficultSubjects': difficultSubjects,
-            'upcomingExams': upcomingExams
-                .map((e) => e.toIso8601String())
-                .toList(),
-            'vakStyle': vakStyle,
-          });
+      // Derive subjects list from the existing schedule
+      final subjects = existingSchedule.map((e) => e.subject).toSet().toList();
 
-      final schedules = response['schedules'] as List?;
-      if (schedules == null) return [];
+      final weakList = weakSubjects?.join(', ') ?? 'tidak ada';
+      final subjectList = subjects.isNotEmpty
+          ? subjects.join(', ')
+          : 'Matematika, Bahasa Indonesia';
 
-      return schedules
-          .map((s) => ScheduleEntry.fromJson(s as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
-      debugPrint('[ScheduleRepository] Generate optimized schedule error: $e');
+      // VAK-aware study tip injected into the prompt
+      final vakTips = switch (vakStyle.toLowerCase()) {
+        'visual' =>
+          'Siswa ini adalah tipe Visual: rekomendasikan sesi dengan catatan berwarna, mind map, dan video tutorial.',
+        'auditory' =>
+          'Siswa ini adalah tipe Auditory: rekomendasikan sesi dengan diskusi, membaca keras, dan podcast.',
+        'kinesthetic' =>
+          'Siswa ini adalah tipe Kinesthetic: rekomendasikan sesi pendek (25 menit) diselingi istirahat aktif.',
+        _ => 'Sesuaikan dengan kebutuhan belajar siswa.',
+      };
 
-      // Fallback: Simple local scheduling algorithm
-      return _generateSimpleStudySchedule(
-        userId: userId,
-        schoolSchedule: schoolSchedule,
-        difficultSubjects: difficultSubjects,
+      final prompt =
+          '''
+Kamu adalah asisten penjadwalan belajar untuk siswa SMA Indonesia.
+
+Data siswa:
+- Gaya belajar: $vakStyle
+- $vakTips
+- Mata pelajaran: $subjectList
+- Mata pelajaran yang lemah (prioritas): $weakList
+- Jam belajar per hari: $studyHoursPerDay jam
+- Hari sekolah: Senin-Sabtu
+- Jam sekolah: 07:00-16:00 (tidak boleh jadwal belajar di sini)
+- Waktu belajar mandiri: 16:00-21:00
+
+Buatkan jadwal belajar mingguan yang optimal.
+Format respons HARUS berupa JSON array seperti ini (jangan tambahkan teks lain):
+[
+  {
+    "day": "Senin",
+    "subject": "Matematika",
+    "startTime": "16:00",
+    "endTime": "17:30",
+    "studyMethod": "Mengerjakan soal latihan",
+    "priority": "high"
+  }
+]
+
+Aturan:
+1. Prioritaskan mata pelajaran yang lemah
+2. Jangan jadwalkan lebih dari 2 jam per mata pelajaran per hari
+3. Sisipkan jeda 15 menit antar sesi
+4. Variasikan mata pelajaran setiap hari
+5. Sesuaikan metode belajar dengan gaya belajar $vakStyle
+6. Total belajar per hari tidak lebih dari $studyHoursPerDay jam
+''';
+
+      final response = await _geminiClient.post(
+        'models/${ApiConfig.geminiModel}:generateContent',
+        {
+          'contents': [
+            {
+              'parts': [
+                {'text': prompt},
+              ],
+            },
+          ],
+          'generationConfig': {'temperature': 0.4, 'maxOutputTokens': 2048},
+        },
+        queryParameters: {'key': ApiConfig.geminiApiKey},
       );
+
+      // Extract and parse the JSON schedule from Gemini's response
+      final aiText = _extractGeminiResponse(response);
+      return _parseOptimizedSchedule(aiText, userId);
+    } catch (e) {
+      debugPrint('[ScheduleRepository] Gemini optimization error: $e');
+      // Fallback: simple local algorithm
+      return _generateSimpleStudySchedule(userId: userId);
+    }
+  }
+
+  /// Parse the JSON schedule array returned by Gemini.
+  List<ScheduleEntry> _parseOptimizedSchedule(String jsonText, String userId) {
+    try {
+      // Strip any markdown or preamble Gemini might add around the JSON
+      final startIdx = jsonText.indexOf('[');
+      final endIdx = jsonText.lastIndexOf(']');
+      if (startIdx == -1 || endIdx == -1) return [];
+
+      final jsonStr = jsonText.substring(startIdx, endIdx + 1);
+      final List<dynamic> items = jsonDecode(jsonStr) as List<dynamic>;
+
+      return items.map((item) {
+        final map = item as Map<String, dynamic>;
+        final day = map['day'] as String? ?? 'Senin';
+        final subject = map['subject'] as String? ?? '';
+        final startTime = map['startTime'] as String? ?? '16:00';
+        final endTime = map['endTime'] as String? ?? '17:00';
+        final method = map['studyMethod'] as String? ?? 'Belajar mandiri';
+
+        return ScheduleEntry(
+          id: 'opt_${DateTime.now().millisecondsSinceEpoch}_${subject.hashCode}',
+          userId: userId,
+          subject: subject,
+          subjectCode: _getSubjectCode(subject),
+          startTime: _parseTime(day, startTime),
+          endTime: _parseTime(day, endTime),
+          location: 'Rumah',
+          isRecurring: true,
+          recurringDays: [_dayToRecurringDay(day)],
+          notes: method,
+          createdAt: DateTime.now(),
+        );
+      }).toList();
+    } catch (e) {
+      debugPrint('[ScheduleRepository] Parse optimized schedule error: $e');
+      return [];
     }
   }
 
@@ -348,7 +442,7 @@ Catatan:
 
       final Map<String, dynamic> data = jsonDecode(jsonStr);
       final List<dynamic> schedulesJson = data['schedules'] ?? [];
-      
+
       final schedules = <ScheduleEntry>[];
       for (final s in schedulesJson) {
         final day = s['day']?.toString().toUpperCase() ?? 'SENIN';
@@ -516,18 +610,18 @@ Catatan:
     return 'image/jpeg';
   }
 
-  /// Simple fallback study schedule generator.
+  /// Simple fallback study schedule generator (used when Gemini is unavailable).
   List<ScheduleEntry> _generateSimpleStudySchedule({
     required String userId,
-    required List<ScheduleEntry> schoolSchedule,
-    required List<String> difficultSubjects,
+    List<String>? difficultSubjects,
   }) {
     final studySchedule = <ScheduleEntry>[];
+    final subjectsToSchedule =
+        difficultSubjects ?? ['Matematika', 'Bahasa Indonesia'];
 
-    // Schedule difficult subjects in evening (19:00-20:30)
-    // This is a simple algorithm - production uses Genetic Algorithm
+    // Schedule subjects in evening (19:00-20:30)
     int dayOffset = 0;
-    for (final subject in difficultSubjects) {
+    for (final subject in subjectsToSchedule) {
       final studyTime = DateTime.now().add(
         Duration(days: dayOffset, hours: 19),
       );

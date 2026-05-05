@@ -133,6 +133,26 @@ class QuizQuestion extends Equatable {
     );
   }
 
+  /// Parse from MongoDB Atlas document format.
+  ///
+  /// Atlas uses `_id: {"\$oid": "..."}` instead of plain `id`.
+  factory QuizQuestion.fromAtlasJson(Map<String, dynamic> json) {
+    // Handle Atlas ObjectId format
+    final rawId = json['_id'];
+    final id = rawId is Map
+        ? rawId['\$oid']?.toString() ?? json['id']?.toString() ?? ''
+        : (rawId ?? json['id'])?.toString() ?? '';
+
+    return QuizQuestion(
+      id: id,
+      question: json['question'] as String,
+      options: List<String>.from(json['options'] as List<dynamic>),
+      correctIndex: json['correctIndex'] as int,
+      explanation: json['explanation'] as String?,
+      imageUrl: json['imageUrl'] as String?,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,

@@ -1,16 +1,36 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-inter);
-  --font-display: var(--font-space-grotesk);
+  --font-sans: var(--font-nunito);
 }
 
 :root {
-  --background: #FFFBF0; /* Warm cream background */
-  --foreground: #0F172A;
-  --primary: #FF7D33;    /* The vibrant orange from the character */
-  --secondary: #1E6B4E;  /* The dark green from the button */
-  --accent: #93C5FD;     /* The light blue from the phone background */
+  /* ── Direct from app_colors.dart ─────────────────────────── */
+  --background: #FFF6E5;          /* backgroundCream */
+  --foreground: #1A1A2E;          /* textPrimary */
+  --primary: #FF6B2B;             /* primaryOrange */
+  --primary-light: #FFDDCC;       /* primaryOrangeLight */
+  --primary-lighter: #FFF5F0;     /* primaryOrangeLighter */
+  --secondary: #1A3D2B;           /* darkGreen */
+  --text-secondary: #6B7280;      /* textSecondary */
+  --text-light: #ADB5BD;          /* textLight */
+  --surface: #FFFFFF;             /* surfaceWhite */
+  --divider: #E5E7EB;             /* divider */
+  --accent-blue: #89B0F3;         /* onboardingTopBlue */
+  --card-shadow: rgba(0,0,0,0.04); /* cardShadow */
+
+  /* ── Status Colors ──────────────────────────────────────── */
+  --status-done: #16A34A;
+  --status-done-bg: #DCFCE7;
+  --status-progress: #EA580C;
+  --status-progress-bg: #FFF7ED;
+
+  /* ── Spacing & Radius (matching 4/8dp system) ──────────── */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-pill: 9999px;
 }
 
 * {
@@ -24,11 +44,7 @@ body {
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4 {
-  font-family: var(--font-display), system-ui, sans-serif;
-}
-
 ::selection {
-  background: #F97316;
+  background: var(--primary);
   color: white;
 }

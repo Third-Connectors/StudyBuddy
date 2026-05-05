@@ -44,11 +44,15 @@ CREATE TABLE IF NOT EXISTS public.daily_missions (
 -- 4. Tabel Study Materials (Materi Belajar Unggulan)
 CREATE TABLE IF NOT EXISTS public.study_materials (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    title TEXT NOT NULL,
+    teacher_id UUID REFERENCES auth.users(id),
+    title TEXT,
     description TEXT,
-    category TEXT, -- Contoh: 'UTBK', 'SNBT', 'Ujian Sekolah'
+    category TEXT,
+    subject TEXT,
+    topic TEXT,
+    content TEXT, -- Isi materi (Markdown/Text)
     image_url TEXT,
-    content_url TEXT, -- Link ke PDF/Video
+    content_url TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

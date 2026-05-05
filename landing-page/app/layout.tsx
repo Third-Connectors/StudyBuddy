@@ -1,20 +1,17 @@
 import type { Metadata } from "next";
-import { Inter, Space_Grotesk } from "next/font/google";
+import { Nunito } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({
+const nunito = Nunito({
   subsets: ["latin"],
-  variable: "--font-inter",
-});
-
-const spaceGrotesk = Space_Grotesk({
-  subsets: ["latin"],
-  variable: "--font-space-grotesk",
+  variable: "--font-nunito",
+  weight: ["400", "500", "600", "700", "800", "900"],
 });
 
 export const metadata: Metadata = {
-  title: "Study Buddy | AI-Powered Socratic Tutor",
-  description: "Democratic access to high-quality education through personal AI tutors available to everyone, everywhere.",
+  title: "Study Buddy — Teman Belajar AI-mu",
+  description:
+    "Asisten belajar AI dengan pendekatan Socratic yang membantu kamu memahami materi, bukan sekadar menjawab soal. Gratis untuk semua siswa Indonesia.",
 };
 
 export default function RootLayout({
@@ -23,8 +20,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
+    <html lang="id" suppressHydrationWarning>
+      <body className={`${nunito.variable} font-sans antialiased`}>
         {children}
       </body>
     </html>

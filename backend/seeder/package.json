@@ -1,0 +1,17 @@
+{
+  "name": "studybuddy-seeder",
+  "version": "1.0.0",
+  "description": "Seeder soal untuk StudyBuddy MongoDB Atlas",
+  "main": "seed_questions.js",
+  "scripts": {
+    "seed": "node seed_questions.js",
+    "seed:drop": "node seed_questions.js --drop",
+    "seed:complete": "node seed_complete.js"
+  },
+  "dependencies": {
+    "mongodb": "^6.3.0",
+    "dotenv": "^16.4.1",
+    "pg": "^8.11.3",
+    "bcrypt": "^5.1.1"
+  }
+}

@@ -6,6 +6,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../domain/providers/practice_provider.dart';
 import 'practice_result_screen.dart';
+import 'widgets/socratic_hint_sheet.dart';
 
 /// Quiz practice screen with integrated Socratic AI hint system.
 class PracticeScreen extends ConsumerStatefulWidget {
@@ -17,15 +18,13 @@ class PracticeScreen extends ConsumerStatefulWidget {
 }
 
 class _PracticeScreenState extends ConsumerState<PracticeScreen> {
-  bool _showHintPanel = false;
-
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(practiceNotifierProvider.notifier).loadQuestions(
-        subject: widget.subject,
-      );
+      ref
+          .read(practiceNotifierProvider.notifier)
+          .loadQuestions(subject: widget.subject);
     });
   }
 
@@ -39,7 +38,9 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
         subject: widget.subject,
         totalQuestions: state.questions.length,
         hintsUsed: state.totalHintsUsed,
-        onRetry: () => ref.read(practiceNotifierProvider.notifier).loadQuestions(subject: widget.subject),
+        onRetry: () => ref
+            .read(practiceNotifierProvider.notifier)
+            .loadQuestions(subject: widget.subject),
         onBack: () => Navigator.of(context).pop(),
       );
     }
@@ -48,17 +49,18 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
       backgroundColor: AppColors.backgroundCream,
       appBar: _buildAppBar(state),
       body: state.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.primaryOrange))
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.primaryOrange),
+            )
           : state.questions.isEmpty
-              ? _buildEmptyState()
-              : Column(
-                  children: [
-                    _buildProgressBar(state),
-                    Expanded(child: _buildQuestionBody(state)),
-                    if (_showHintPanel) _buildHintBubble(state),
-                    _buildBottomBar(state),
-                  ],
-                ),
+          ? _buildEmptyState()
+          : Column(
+              children: [
+                _buildProgressBar(state),
+                Expanded(child: _buildQuestionBody(state)),
+                _buildBottomBar(state),
+              ],
+            ),
     );
   }
 
@@ -79,7 +81,9 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
               padding: const EdgeInsets.only(right: 16),
               child: Text(
                 '${state.currentQuestionIndex + 1}/${state.questions.length}',
-                style: AppTextStyles.labelMedium.copyWith(color: AppColors.primaryOrange),
+                style: AppTextStyles.labelMedium.copyWith(
+                  color: AppColors.primaryOrange,
+                ),
               ),
             ),
           ),
@@ -95,7 +99,9 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
         children: List.generate(state.questions.length, (i) {
           Color color;
           if (state.answeredCorrectly.containsKey(i)) {
-            color = state.answeredCorrectly[i]! ? AppColors.statusDoneText : Colors.redAccent;
+            color = state.answeredCorrectly[i]!
+                ? AppColors.statusDoneText
+                : Colors.redAccent;
           } else if (i == state.currentQuestionIndex) {
             color = AppColors.primaryOrange;
           } else {
@@ -103,10 +109,13 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
           }
           return Expanded(
             child: GestureDetector(
-              onTap: () => ref.read(practiceNotifierProvider.notifier).goToQuestion(i),
+              onTap: () =>
+                  ref.read(practiceNotifierProvider.notifier).goToQuestion(i),
               child: Container(
                 height: 4,
-                margin: EdgeInsets.only(right: i < state.questions.length - 1 ? 3 : 0),
+                margin: EdgeInsets.only(
+                  right: i < state.questions.length - 1 ? 3 : 0,
+                ),
                 decoration: BoxDecoration(
                   color: color,
                   borderRadius: BorderRadius.circular(2),
@@ -136,7 +145,13 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
             decoration: BoxDecoration(
               color: AppColors.surfaceWhite,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 12, offset: const Offset(0, 4))],
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -144,21 +159,34 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: AppColors.primaryOrangeLighter,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('Soal ${state.currentQuestionIndex + 1}', style: AppTextStyles.labelSmall.copyWith(color: AppColors.primaryOrange)),
+                      child: Text(
+                        'Soal ${state.currentQuestionIndex + 1}',
+                        style: AppTextStyles.labelSmall.copyWith(
+                          color: AppColors.primaryOrange,
+                        ),
+                      ),
                     ),
                     const Spacer(),
                     // Hint button
-                    if (!isAnswered)
-                      _buildHintButton(state),
+                    if (!isAnswered) _buildHintButton(state),
                   ],
                 ),
                 const SizedBox(height: 16),
-                Text(question.question, style: AppTextStyles.bodyLarge.copyWith(fontSize: 16, height: 1.5)),
+                Text(
+                  question.question,
+                  style: AppTextStyles.bodyLarge.copyWith(
+                    fontSize: 16,
+                    height: 1.5,
+                  ),
+                ),
               ],
             ),
           ),
@@ -174,15 +202,24 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                 isSelected: selectedIdx == i,
                 isCorrect: i == question.correctIndex,
                 isAnswered: isAnswered,
-                onTap: isAnswered ? null : () => ref.read(practiceNotifierProvider.notifier).selectAnswer(i),
+                onTap: isAnswered
+                    ? null
+                    : () => ref
+                          .read(practiceNotifierProvider.notifier)
+                          .selectAnswer(i),
               ),
             );
           }),
 
           // Explanation
-          if (isAnswered && state.showExplanation && question.explanation != null) ...[
+          if (isAnswered &&
+              state.showExplanation &&
+              question.explanation != null) ...[
             const SizedBox(height: 8),
-            _buildExplanationCard(question.explanation!, selectedIdx == question.correctIndex),
+            _buildExplanationCard(
+              question.explanation!,
+              selectedIdx == question.correctIndex,
+            ),
           ],
 
           const SizedBox(height: 80),
@@ -199,21 +236,40 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        onTap: () => setState(() => _showHintPanel = !_showHintPanel),
+        onTap: () => showSocraticHintSheet(
+          context,
+          ref,
+          state.currentQuestionIndex,
+          state.currentQuestion?.question ?? '',
+          widget.subject,
+        ),
         borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [Color(0xFFFFF8EC), Color(0xFFFFF0DB)]),
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFFF8EC), Color(0xFFFFF0DB)],
+            ),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.aiSuggestionBorder),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.auto_awesome, size: 16, color: AppColors.aiSuggestionIcon),
+              const Icon(
+                Icons.auto_awesome,
+                size: 16,
+                color: AppColors.aiSuggestionIcon,
+              ),
               const SizedBox(width: 6),
-              Text('Hint ($remaining)', style: GoogleFonts.nunito(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.aiSuggestionIcon)),
+              Text(
+                'Hint ($remaining)',
+                style: GoogleFonts.nunito(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.aiSuggestionIcon,
+                ),
+              ),
             ],
           ),
         ),
@@ -274,13 +330,32 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
         child: Row(
           children: [
             Container(
-              width: 32, height: 32,
-              decoration: BoxDecoration(color: labelBg, borderRadius: BorderRadius.circular(8)),
-              child: Center(child: Text(label, style: GoogleFonts.nunito(fontSize: 14, fontWeight: FontWeight.w800, color: labelColor))),
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: labelBg,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  label,
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: labelColor,
+                  ),
+                ),
+              ),
             ),
             const SizedBox(width: 14),
-            Expanded(child: Text(text, style: AppTextStyles.bodyMedium.copyWith(height: 1.4))),
-            if (trailingIcon != null) Icon(trailingIcon, color: trailingColor, size: 22),
+            Expanded(
+              child: Text(
+                text,
+                style: AppTextStyles.bodyMedium.copyWith(height: 1.4),
+              ),
+            ),
+            if (trailingIcon != null)
+              Icon(trailingIcon, color: trailingColor, size: 22),
           ],
         ),
       ),
@@ -293,26 +368,52 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
       decoration: BoxDecoration(
         color: isCorrect ? const Color(0xFFF0FDF4) : const Color(0xFFFFF8EC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isCorrect ? const Color(0xFFBBF7D0) : AppColors.aiSuggestionBorder),
+        border: Border.all(
+          color: isCorrect
+              ? const Color(0xFFBBF7D0)
+              : AppColors.aiSuggestionBorder,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(isCorrect ? Icons.emoji_events_rounded : Icons.lightbulb_rounded, size: 18, color: isCorrect ? AppColors.statusDoneText : AppColors.aiSuggestionIcon),
+              Icon(
+                isCorrect
+                    ? Icons.emoji_events_rounded
+                    : Icons.lightbulb_rounded,
+                size: 18,
+                color: isCorrect
+                    ? AppColors.statusDoneText
+                    : AppColors.aiSuggestionIcon,
+              ),
               const SizedBox(width: 8),
-              Text(isCorrect ? 'Benar! 🎉' : 'Pembahasan', style: AppTextStyles.titleSmall.copyWith(color: isCorrect ? AppColors.statusDoneText : AppColors.aiSuggestionIcon)),
+              Text(
+                isCorrect ? 'Benar! 🎉' : 'Pembahasan',
+                style: AppTextStyles.titleSmall.copyWith(
+                  color: isCorrect
+                      ? AppColors.statusDoneText
+                      : AppColors.aiSuggestionIcon,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 10),
-          Text(explanation, style: AppTextStyles.bodySmall.copyWith(height: 1.6, color: AppColors.textPrimary)),
+          Text(
+            explanation,
+            style: AppTextStyles.bodySmall.copyWith(
+              height: 1.6,
+              color: AppColors.textPrimary,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildHintBubble(PracticeState state) {
+  // ignore: unused_element — replaced by SocraticHintSheet bottom sheet
+  Widget _buildHintBubble_REMOVED(PracticeState state) {
     final idx = state.currentQuestionIndex;
     final hintState = state.hintStates[idx] ?? const QuestionHintState();
 
@@ -339,7 +440,11 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                     ),
                   ],
                 ),
-                child: const Icon(Icons.auto_awesome, size: 16, color: Colors.white),
+                child: const Icon(
+                  Icons.auto_awesome,
+                  size: 16,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(width: 8),
               // Hint Bubble
@@ -376,20 +481,21 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                           ),
                         )
                       else
-                        ...hintState.hints.map((hint) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: Text(
-                            hint.content,
-                            style: GoogleFonts.nunito(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textPrimary,
-                              height: 1.4,
+                        ...hintState.hints.map(
+                          (hint) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              hint.content,
+                              style: GoogleFonts.nunito(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textPrimary,
+                                height: 1.4,
+                              ),
                             ),
                           ),
-                        )),
-                      if (hintState.hintCount < 3)
-                        const SizedBox(height: 12),
+                        ),
+                      if (hintState.hintCount < 3) const SizedBox(height: 12),
                       if (hintState.hintCount < 3)
                         _buildRequestHintButton(hintState),
                     ],
@@ -408,16 +514,27 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton.icon(
-        onPressed: hintState.isLoading ? null : () => ref.read(practiceNotifierProvider.notifier).requestHint(),
+        onPressed: hintState.isLoading
+            ? null
+            : () => ref.read(practiceNotifierProvider.notifier).requestHint(),
         icon: hintState.isLoading
-            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
             : const Icon(Icons.auto_awesome, size: 16),
         label: Text(hintState.isLoading ? 'Memuat...' : 'Minta Hint AI'),
         style: ElevatedButton.styleFrom(
           backgroundColor: AppColors.aiSuggestionIcon,
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       ),
     );
@@ -428,7 +545,13 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       decoration: BoxDecoration(
         color: AppColors.surfaceWhite,
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, -4))],
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 10,
+            offset: const Offset(0, -4),
+          ),
+        ],
       ),
       child: SafeArea(
         top: false,
@@ -437,14 +560,18 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
             if (state.currentQuestionIndex > 0)
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed: () => ref.read(practiceNotifierProvider.notifier).previousQuestion(),
+                  onPressed: () => ref
+                      .read(practiceNotifierProvider.notifier)
+                      .previousQuestion(),
                   icon: const Icon(Icons.arrow_back_rounded, size: 18),
                   label: const Text('Kembali'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textSecondary,
                     side: const BorderSide(color: AppColors.divider),
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -455,10 +582,13 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                 onPressed: state.isCurrentAnswered
                     ? () {
                         if (state.isLastQuestion) {
-                          ref.read(practiceNotifierProvider.notifier).completeQuiz();
+                          ref
+                              .read(practiceNotifierProvider.notifier)
+                              .completeQuiz();
                         } else {
-                          setState(() => _showHintPanel = false);
-                          ref.read(practiceNotifierProvider.notifier).nextQuestion();
+                          ref
+                              .read(practiceNotifierProvider.notifier)
+                              .nextQuestion();
                         }
                       }
                     : null,
@@ -467,11 +597,18 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
                   foregroundColor: Colors.white,
                   disabledBackgroundColor: AppColors.progressTrack,
                   padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: Text(
-                  state.isLastQuestion && state.isCurrentAnswered ? 'Lihat Hasil' : 'Lanjut',
-                  style: GoogleFonts.nunito(fontSize: 15, fontWeight: FontWeight.w700),
+                  state.isLastQuestion && state.isCurrentAnswered
+                      ? 'Lihat Hasil'
+                      : 'Lanjut',
+                  style: GoogleFonts.nunito(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
@@ -503,9 +640,15 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
         title: const Text('Keluar dari latihan?'),
         content: const Text('Progres latihanmu tidak akan disimpan.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Batal')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
           ElevatedButton(
-            onPressed: () { Navigator.pop(ctx); Navigator.pop(context); },
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+            },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             child: const Text('Keluar', style: TextStyle(color: Colors.white)),
           ),
