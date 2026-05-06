@@ -1,220 +1,116 @@
-// ════════════════════════════════════════════════════════════════════════════
-// 📝 QUIZ REPOSITORY — Quiz & Leaderboard Operations
-// ════════════════════════════════════════════════════════════════════════════
-//
-// Handles:
-// - Quiz listing and filtering
-// - Quiz attempt and submission
-// - Score calculation and XP rewards
-// - Leaderboard rankings
-// - User profile stats
-//
-// Backend: NestJS API Gateway with MongoDB (quiz content) & PostgreSQL (results)
-// ════════════════════════════════════════════════════════════════════════════
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 import '../models/quiz_model.dart';
 import '../../../profile/data/models/profile_model.dart';
-import '../../../../core/network/api_client.dart';
+import '../../../../core/providers/supabase_provider.dart';
+import '../../../../core/services/mongo_atlas_client.dart';
 import '../../../../core/constants/api_config.dart';
-import '../../../../core/providers/api_providers.dart';
 
-/// Repository for Quiz operations.
+/// Hybrid Repository for Quiz operations.
+/// Questions come from MongoDB Atlas, Results go to Supabase.
 class QuizRepository {
-  final ApiClient _apiClient;
+  final supabase.SupabaseClient _supabase;
+  final MongoAtlasClient _mongoClient = MongoAtlasClient();
 
-  QuizRepository(this._apiClient);
+  QuizRepository(this._supabase);
 
-  /// Get list of available quizzes.
-  ///
-  /// Backend: GET /quiz
-  /// Query params: subject, difficulty, gradeLevel
-  Future<List<Quiz>> getQuizzes({
-    String? subjectCode,
-    String? difficulty,
-    String? gradeLevel,
-  }) async {
+  /// Get quiz questions from MongoDB Atlas.
+  Future<List<QuizQuestion>> getQuizQuestions(String subject, {String difficulty = 'medium'}) async {
     try {
-      final response = await _apiClient.get(
-        ApiEndpoints.quizList,
-        queryParameters: {
-          if (subjectCode != null) 'subject': subjectCode,
-          if (difficulty != null) 'difficulty': difficulty,
-          if (gradeLevel != null) 'gradeLevel': gradeLevel,
-        },
-      );
+      // 1. Try to fetch from MongoDB Atlas
+      if (ApiConfig.mongoAtlasApiKey != 'YOUR_ATLAS_API_KEY') {
+        final docs = await _mongoClient.find(
+          collection: ApiConfig.colQuestions,
+          filter: {'subject': subject, 'difficulty': difficulty},
+          limit: 10,
+        );
 
-      final quizzes = response['quizzes'] as List?;
-      if (quizzes == null) return [];
-
-      return quizzes
-          .map((q) => Quiz.fromJson(q as Map<String, dynamic>))
-          .toList();
+        if (docs.isNotEmpty) {
+          return docs.map((d) => QuizQuestion.fromAtlasJson(d)).toList();
+        }
+      }
     } catch (e) {
-      debugPrint('[QuizRepository] Get quizzes error: $e');
-      return [];
+      debugPrint('[QuizRepository] MongoDB Atlas fetch failed: $e');
     }
+    
+    return []; // Return empty if not found, caller can use fallback
   }
 
-  /// Get quiz details by ID.
-  ///
-  /// Backend: GET /quiz/{quizId}
-  Future<Quiz?> getQuizById(String quizId) async {
-    try {
-      final response = await _apiClient.get(
-        ApiEndpoints.quizDetail.replaceFirst('{quizId}', quizId),
-      );
-
-      return Quiz.fromJson(response['quiz'] as Map<String, dynamic>);
-    } catch (e) {
-      debugPrint('[QuizRepository] Get quiz by ID error: $e');
-      return null;
-    }
-  }
-
-  /// Get quiz questions.
-  ///
-  /// Backend: GET /quiz/{quizId}/questions
-  Future<List<QuizQuestion>> getQuizQuestions(String quizId) async {
-    try {
-      final response = await _apiClient.get(
-        '${ApiEndpoints.quizDetail}/$quizId/questions',
-      );
-
-      final questions = response['questions'] as List?;
-      if (questions == null) return [];
-
-      return questions
-          .map((q) => QuizQuestion.fromJson(q as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
-      debugPrint('[QuizRepository] Get questions error: $e');
-      return [];
-    }
-  }
-
-  /// Submit quiz answers.
-  ///
-  /// Backend: POST /quiz/{quizId}/submit
-  /// Response includes score, XP earned, and correct answers
+  /// Submit quiz answers and save to Supabase 'quiz_results'.
   Future<QuizResult> submitQuiz({
     required String quizId,
     required String userId,
     required List<int> selectedAnswers,
+    required int correctCount,
+    required int score,
+    required int xpEarned,
     required Duration timeSpent,
   }) async {
     try {
-      final response = await _apiClient
-          .post(ApiEndpoints.quizSubmit.replaceFirst('{quizId}', quizId), {
-            'userId': userId,
-            'answers': selectedAnswers,
-            'timeSpentSeconds': timeSpent.inSeconds,
-          });
+      final response = await _supabase.from('quiz_results').insert({
+        'quiz_id': quizId,
+        'user_id': userId,
+        'answers': selectedAnswers,
+        'correct_count': correctCount,
+        'score': score,
+        'xp_earned': xpEarned,
+        'time_spent_seconds': timeSpent.inSeconds,
+      }).select().single();
 
-      return QuizResult.fromJson(response['result'] as Map<String, dynamic>);
+      return _mapQuizResultFromSupabase(response);
     } catch (e) {
       debugPrint('[QuizRepository] Submit quiz error: $e');
       throw Exception('Failed to submit quiz: $e');
     }
   }
 
-  /// Get quiz result by ID.
-  ///
-  /// Backend: GET /quiz/result/{resultId}
-  Future<QuizResult?> getQuizResult(String resultId) async {
-    try {
-      final response = await _apiClient.get(
-        ApiEndpoints.quizResult.replaceFirst('{quizId}', resultId),
-      );
-
-      return QuizResult.fromJson(response['result'] as Map<String, dynamic>);
-    } catch (e) {
-      debugPrint('[QuizRepository] Get result error: $e');
-      return null;
-    }
-  }
-
-  /// Get user's quiz history.
-  ///
-  /// Backend: GET /quiz/history?userId=$userId
-  Future<List<QuizResult>> getQuizHistory(String userId) async {
-    try {
-      final response = await _apiClient.get(
-        '${ApiEndpoints.quizList}/history',
-        queryParameters: {'userId': userId},
-      );
-
-      final results = response['results'] as List?;
-      if (results == null) return [];
-
-      return results
-          .map((r) => QuizResult.fromJson(r as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
-      debugPrint('[QuizRepository] Get history error: $e');
-      return [];
-    }
-  }
-
-  /// Get recommended quizzes based on user's VAK style and weak subjects.
-  ///
-  /// Backend: GET /quiz/recommended?userId=$userId
-  Future<List<Quiz>> getRecommendedQuizzes(String userId) async {
-    try {
-      final response = await _apiClient.get(
-        '${ApiEndpoints.quizList}/recommended',
-        queryParameters: {'userId': userId},
-      );
-
-      final quizzes = response['quizzes'] as List?;
-      if (quizzes == null) return [];
-
-      return quizzes
-          .map((q) => Quiz.fromJson(q as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
-      debugPrint('[QuizRepository] Get recommended error: $e');
-      return [];
-    }
+  /// Helper to map Supabase JSON to QuizResult model.
+  QuizResult _mapQuizResultFromSupabase(Map<String, dynamic> json) {
+    return QuizResult(
+      id: json['id'],
+      quizId: json['quiz_id'],
+      userId: json['user_id'],
+      selectedAnswers: List<int>.from(json['answers']),
+      correctCount: json['correct_count'],
+      score: (json['score'] as num).toInt(),
+      xpEarned: json['xp_earned'],
+      completedAt: DateTime.parse(json['completed_at']),
+      timeSpent: Duration(seconds: json['time_spent_seconds']),
+    );
   }
 }
 
-/// Repository for Leaderboard operations.
+/// Repository for Leaderboard operations using Supabase.
 class LeaderboardRepository {
-  final ApiClient _apiClient;
+  final supabase.SupabaseClient _supabase;
 
-  LeaderboardRepository(this._apiClient);
+  LeaderboardRepository(this._supabase);
 
-  /// Get leaderboard entries.
-  ///
-  /// Backend: GET /leaderboard (or /leaderboard/weekly, /leaderboard/monthly)
-  Future<List<LeaderboardEntry>> getLeaderboard({
-    String? timeframe, // 'daily', 'weekly', 'monthly', 'alltime'
-    int limit = 50,
-  }) async {
+  /// Get leaderboard entries from 'profiles' table.
+  Future<List<LeaderboardEntry>> getLeaderboard({int limit = 50}) async {
     try {
-      String endpoint;
-      if (timeframe == 'weekly') {
-        endpoint = ApiEndpoints.leaderboardWeekly;
-      } else if (timeframe == 'monthly') {
-        endpoint = ApiEndpoints.leaderboardMonthly;
-      } else {
-        endpoint = ApiEndpoints.leaderboard;
-      }
+      final response = await _supabase
+          .from('profiles')
+          .select('id, name, xp, level, profile_image_url')
+          .order('xp', ascending: false)
+          .limit(limit);
 
-      final response = await _apiClient.get(
-        endpoint,
-        queryParameters: {'limit': limit},
-      );
-
-      final entries = response['entries'] as List?;
-      if (entries == null) return [];
-
-      return entries
-          .map((e) => LeaderboardEntry.fromJson(e as Map<String, dynamic>))
-          .toList();
+      return (response as List).asMap().entries.map<LeaderboardEntry>((entry) {
+        final i = entry.key;
+        final data = entry.value;
+        return LeaderboardEntry(
+          id: data['id'] ?? '',
+          userId: data['id'] ?? '',
+          userName: data['name'] ?? 'Student',
+          profileImageUrl: data['profile_image_url'] as String?,
+          xp: data['xp'] ?? 0,
+          rank: i + 1,
+          level: data['level'] ?? 1,
+          badges: 0,
+        );
+      }).toList();
     } catch (e) {
       debugPrint('[LeaderboardRepository] Get leaderboard error: $e');
       return [];
@@ -222,83 +118,33 @@ class LeaderboardRepository {
   }
 
   /// Get user's rank on leaderboard.
-  ///
-  /// Backend: GET /leaderboard/rank?userId=$userId
   Future<int?> getUserRank(String userId) async {
     try {
-      final response = await _apiClient.get(
-        '${ApiEndpoints.leaderboard}/rank',
-        queryParameters: {'userId': userId},
-      );
+      final userResponse = await _supabase
+          .from('profiles')
+          .select('xp')
+          .eq('id', userId)
+          .single();
 
-      return response['rank'] as int?;
+      final userXp = userResponse['xp'] ?? 0;
+      final countResponse = await _supabase
+          .from('profiles')
+          .count()
+          .gt('xp', userXp);
+
+      return countResponse + 1;
     } catch (e) {
       debugPrint('[LeaderboardRepository] Get rank error: $e');
       return null;
-    }
-  }
-
-  /// Get user's profile with stats.
-  ///
-  /// Backend: GET /user/stats/{userId}
-  Future<UserProfile> getUserProfile(String userId) async {
-    try {
-      final response = await _apiClient.get(
-        ApiEndpoints.userStats.replaceFirst('{userId}', userId),
-      );
-
-      return UserProfile.fromJson(response['profile'] as Map<String, dynamic>);
-    } catch (e) {
-      debugPrint('[LeaderboardRepository] Get profile error: $e');
-      throw Exception('Failed to load user profile: $e');
-    }
-  }
-
-  /// Get user's friends leaderboard (social comparison).
-  ///
-  /// Backend: GET /leaderboard/friends
-  Future<List<LeaderboardEntry>> getFriendsLeaderboard({int limit = 20}) async {
-    try {
-      final response = await _apiClient.get(
-        '${ApiEndpoints.leaderboard}/friends',
-        queryParameters: {'limit': limit},
-      );
-
-      final entries = response['entries'] as List?;
-      if (entries == null) return [];
-
-      return entries
-          .map((e) => LeaderboardEntry.fromJson(e as Map<String, dynamic>))
-          .toList();
-    } catch (e) {
-      debugPrint('[LeaderboardRepository] Get friends leaderboard error: $e');
-      return [];
-    }
-  }
-
-  /// Get user's rank progression (weekly/monthly trend).
-  ///
-  /// Backend: GET /leaderboard/progression?userId=$userId
-  Future<List<Map<String, dynamic>>> getRankProgression(String userId) async {
-    try {
-      final response = await _apiClient.get(
-        '${ApiEndpoints.leaderboard}/progression',
-        queryParameters: {'userId': userId},
-      );
-
-      return response['progression'] as List<Map<String, dynamic>>? ?? [];
-    } catch (e) {
-      debugPrint('[LeaderboardRepository] Get progression error: $e');
-      return [];
     }
   }
 }
 
 /// Providers for repositories.
 final quizRepositoryProvider = Provider<QuizRepository>((ref) {
-  return QuizRepository(ref.watch(apiClientProvider));
+  return QuizRepository(ref.watch(supabaseClientProvider));
 });
 
 final leaderboardRepositoryProvider = Provider<LeaderboardRepository>((ref) {
-  return LeaderboardRepository(ref.watch(apiClientProvider));
+  return LeaderboardRepository(ref.watch(supabaseClientProvider));
 });

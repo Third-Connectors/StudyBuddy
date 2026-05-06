@@ -1,49 +1,23 @@
-// ════════════════════════════════════════════════════════════════════════════
-// 📅 SCHEDULE REPOSITORY — Gemini Vision OCR + Genetic Algorithm
-// ════════════════════════════════════════════════════════════════════════════
-//
-// Smart Schedule Scanner for Indonesian High Schools.
-//
-// Features:
-// - OCR using Gemini Vision API (handwritten & printed schedules)
-// - Schedule parsing for Indonesian school format
-// - Genetic Algorithm for optimized study scheduling
-// - Integration with VAK learning styles
-//
-// Flow:
-// 1. User uploads photo → Gemini Vision OCR → Parse schedule
-// 2. Extract subjects, times, locations
-// 3. Generate optimized study schedule using Genetic Algorithm
-// ════════════════════════════════════════════════════════════════════════════
-
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 import '../models/schedule_model.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/constants/api_config.dart';
-import '../../../../core/providers/api_providers.dart';
+import '../../../../core/providers/supabase_provider.dart';
 
-/// Repository for Schedule Scanner.
-///
-/// Handles:
-/// - Image capture/picking
-/// - OCR processing with Gemini Vision
-/// - Schedule parsing
-/// - Optimized study schedule generation
+/// Repository for Schedule Scanner using Supabase and Gemini Vision.
 class ScheduleRepository {
-  final ApiClient _apiClient;
+  final supabase.SupabaseClient _supabase;
   final ApiClient _geminiClient;
   final ImagePicker _imagePicker;
 
-  // Local cache to keep data when server is down
-  static final List<ScheduleEntry> _localCache = [];
-
-  ScheduleRepository(this._apiClient, this._geminiClient)
+  ScheduleRepository(this._supabase, this._geminiClient)
     : _imagePicker = ImagePicker();
 
   /// Pick an image from gallery.
@@ -64,20 +38,15 @@ class ScheduleRepository {
     );
   }
 
-  /// Upload schedule image for OCR processing.
-  ///
-  /// Uses Gemini Vision API to extract text from schedule images.
+  /// Upload schedule image for OCR processing with Gemini Vision.
   Future<OcrResult> uploadScheduleImage(String imagePath) async {
     try {
-      // Read and encode image
       final imageBytes = await File(imagePath).readAsBytes();
       final base64Image = base64Encode(imageBytes);
       final mimeType = _getMimeType(imagePath);
 
-      // OCR prompt for Indonesian school schedules
       final ocrPrompt = '''
 Anda adalah sistem OCR khusus untuk jadwal pelajaran sekolah Indonesia (SMA/MA/SMK).
-
 Tugas Anda:
 1. Baca dan ekstrak semua informasi dari gambar jadwal ini
 2. Identifikasi: Hari, Mata Pelajaran, Waktu Mulai, Waktu Selesai, Ruang (jika ada)
@@ -85,7 +54,7 @@ Tugas Anda:
 
 Format Output JSON:
 {
-  "rawText": "teks lengkap yang terbaca dari gambar",
+  "rawText": "teks lengkap yang terbaca",
   "schedules": [
     {
       "day": "SENIN",
@@ -95,16 +64,8 @@ Format Output JSON:
       "location": "Ruang 101"
     }
   ]
-}
+}''';
 
-Catatan:
-- Gunakan format waktu 24 jam (HH:MM)
-- Hari dalam bahasa Indonesia (SENIN, SELASA, RABU, KAMIS, JUMAT, SABTU)
-- Jika ada tulisan tangan, coba interpretasikan sebaik mungkin
-- Abaikan noise atau tulisan yang tidak jelas
-''';
-
-      // Call Gemini Vision API
       final response = await _geminiClient.post(
         'models/${ApiConfig.geminiVisionModel}:generateContent',
         {
@@ -118,15 +79,10 @@ Catatan:
               ],
             },
           ],
-          'generationConfig': {
-            'temperature': 0.1, // Even lower for structural JSON accuracy
-            'maxOutputTokens': 8192, // Increased for thinking/reasoning models
-          },
         },
         queryParameters: {'key': ApiConfig.geminiApiKey},
       );
 
-      // Extract and parse response
       final rawText = _extractGeminiResponse(response);
       final parsedSchedules = _parseScheduleFromOCR(rawText);
 
@@ -138,521 +94,205 @@ Catatan:
       );
     } catch (e) {
       debugPrint('[ScheduleRepository] OCR error: $e');
-      throw Exception('Failed to process image: $e');
+      throw Exception('Gagal memproses gambar: $e');
     }
   }
 
-  /// Process OCR result and extract schedule entries.
-  ///
-  /// Alternative method that calls backend API (for production).
-  Future<OcrResult> processOcr(String imagePath) async {
-    // For production: Call backend API
-    // Backend will handle OCR + parsing with better error handling
-    try {
-      final response = await _apiClient.uploadFile(
-        ApiEndpoints.scannerUpload,
-        imagePath,
-      );
-
-      return OcrResult.fromJson(response['result']);
-    } catch (e) {
-      debugPrint('[ScheduleRepository] Backend OCR error: $e');
-      // Fallback to direct Gemini Vision
-      return await uploadScheduleImage(imagePath);
-    }
-  }
-
-  /// Get all user schedules.
-  ///
-  /// TODO: Fetch from MongoDB via backend.
+  /// Get active schedule from Supabase.
   Future<List<ScheduleEntry>> getSchedules(String userId) async {
     try {
-      final response = await _apiClient
-          .get('${ApiEndpoints.schedule}?userId=$userId')
-          .timeout(const Duration(seconds: 5)); // Fail fast!
+      final response = await _supabase
+          .from('schedules')
+          .select()
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .maybeSingle();
 
-      final schedules = response['schedules'] as List?;
-      if (schedules == null) return _localCache;
+      if (response == null) return [];
 
-      final results = schedules
+      final List items = response['items'] as List;
+      return items
           .map((s) => ScheduleEntry.fromJson(s as Map<String, dynamic>))
           .toList();
-
-      // Sync local cache with server data if available
-      _localCache.clear();
-      _localCache.addAll(results);
-
-      return results;
     } catch (e) {
-      debugPrint('[ScheduleRepository] Get schedules error (using local): $e');
-      return _localCache; // Kembalikan data lokal jika server timeout
+      debugPrint('[ScheduleRepository] Get schedules error: $e');
+      return [];
     }
   }
 
-  /// Add a new schedule entry.
-  ///
-  /// Backend: POST /schedule
-  Future<ScheduleEntry> addSchedule(ScheduleEntry schedule) async {
-    // Selalu simpan ke lokal dulu
-    if (!_localCache.any((s) => s.id == schedule.id)) {
-      _localCache.add(schedule);
-    }
-
+  /// Save/Update entire schedule to Supabase.
+  Future<void> saveSchedule(String userId, List<ScheduleEntry> entries) async {
     try {
-      final response = await _apiClient
-          .post(ApiEndpoints.schedule, schedule.toJson())
-          .timeout(const Duration(seconds: 3)); // Fail fast!
+      final itemsJson = entries.map((e) => e.toJson()).toList();
 
-      return ScheduleEntry.fromJson(
-        response['schedule'] as Map<String, dynamic>,
-      );
+      await _supabase.from('schedules').upsert({
+        'user_id': userId,
+        'title': 'Jadwal Sekolah Utama',
+        'items': itemsJson,
+        'is_active': true,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('user_id', userId);
+
+      debugPrint('[ScheduleRepository] Schedule saved to Supabase');
     } catch (e) {
-      debugPrint(
-        '[ScheduleRepository] Add schedule error (stored locally): $e',
-      );
-      return schedule;
+      debugPrint('[ScheduleRepository] Save schedule error: $e');
+      throw Exception('Gagal menyimpan jadwal: $e');
     }
   }
 
-  /// Update an existing schedule entry.
-  ///
-  /// Backend: PUT /schedule/{scheduleId}
-  Future<ScheduleEntry> updateSchedule(ScheduleEntry schedule) async {
+  /// Add a single schedule entry to Supabase.
+  Future<ScheduleEntry> addSchedule(ScheduleEntry entry) async {
     try {
-      final response = await _apiClient.put(
-        ApiEndpoints.scheduleDetail.replaceFirst('{scheduleId}', schedule.id),
-        schedule.toJson(),
-      );
+      final userId = _supabase.auth.currentUser?.id ?? entry.userId;
 
-      return ScheduleEntry.fromJson(
-        response['schedule'] as Map<String, dynamic>,
-      );
+      // Get existing schedule
+      final existing = await getSchedules(userId);
+      final updated = [...existing, entry];
+
+      // Save all
+      await saveSchedule(userId, updated);
+
+      return entry;
     } catch (e) {
-      debugPrint('[ScheduleRepository] Update schedule error: $e');
-      return schedule;
+      debugPrint('[ScheduleRepository] Add schedule error: $e');
+      throw Exception('Gagal menambah jadwal: $e');
     }
   }
 
-  /// Delete a schedule entry.
-  ///
-  /// Backend: DELETE /schedule/{scheduleId}
+  /// Delete a schedule entry by ID.
   Future<void> deleteSchedule(String scheduleId) async {
     try {
-      await _apiClient.delete(
-        ApiEndpoints.scheduleDetail.replaceFirst('{scheduleId}', scheduleId),
-      );
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('User not authenticated');
+
+      final existing = await getSchedules(userId);
+      final updated = existing.where((s) => s.id != scheduleId).toList();
+
+      await saveSchedule(userId, updated);
+
+      debugPrint('[ScheduleRepository] Schedule $scheduleId deleted');
     } catch (e) {
       debugPrint('[ScheduleRepository] Delete schedule error: $e');
+      throw Exception('Gagal menghapus jadwal: $e');
     }
   }
 
-  /// Generate optimized study schedule using Genetic Algorithm.
-  ///
-  /// Generate an optimized study schedule using Google Gemini AI.
-  ///
-  /// Previously used a Python Genetic Algorithm server (FastAPI/ML service).
-  /// Now fully serverless — sends user data to Gemini and parses the JSON
-  /// schedule it returns. No external server needed.
-  ///
-  /// [userId]            — Supabase user ID
-  /// [vakStyle]          — VAK learning style: 'Visual', 'Auditory', 'Kinesthetic'
-  /// [existingSchedule]  — User's current school schedule (used to extract subjects)
-  /// [weakSubjects]      — Subjects to prioritise (optional)
-  /// [studyHoursPerDay]  — Max daily self-study time in hours (default 3)
+  /// Generate optimized study schedule using Gemini AI.
   Future<List<ScheduleEntry>> generateOptimizedStudySchedule({
     required String userId,
     required String vakStyle,
     required List<ScheduleEntry> existingSchedule,
     List<String>? weakSubjects,
-    int studyHoursPerDay = 3,
   }) async {
     try {
-      // Derive subjects list from the existing schedule
       final subjects = existingSchedule.map((e) => e.subject).toSet().toList();
+      final subjectList = subjects.join(', ');
+      final weakList = weakSubjects?.join(', ') ?? '';
 
-      final weakList = weakSubjects?.join(', ') ?? 'tidak ada';
-      final subjectList = subjects.isNotEmpty
-          ? subjects.join(', ')
-          : 'Matematika, Bahasa Indonesia';
-
-      // VAK-aware study tip injected into the prompt
-      final vakTips = switch (vakStyle.toLowerCase()) {
-        'visual' =>
-          'Siswa ini adalah tipe Visual: rekomendasikan sesi dengan catatan berwarna, mind map, dan video tutorial.',
-        'auditory' =>
-          'Siswa ini adalah tipe Auditory: rekomendasikan sesi dengan diskusi, membaca keras, dan podcast.',
-        'kinesthetic' =>
-          'Siswa ini adalah tipe Kinesthetic: rekomendasikan sesi pendek (25 menit) diselingi istirahat aktif.',
-        _ => 'Sesuaikan dengan kebutuhan belajar siswa.',
-      };
-
-      final prompt =
-          '''
-Kamu adalah asisten penjadwalan belajar untuk siswa SMA Indonesia.
-
-Data siswa:
-- Gaya belajar: $vakStyle
-- $vakTips
-- Mata pelajaran: $subjectList
-- Mata pelajaran yang lemah (prioritas): $weakList
-- Jam belajar per hari: $studyHoursPerDay jam
-- Hari sekolah: Senin-Sabtu
-- Jam sekolah: 07:00-16:00 (tidak boleh jadwal belajar di sini)
-- Waktu belajar mandiri: 16:00-21:00
-
-Buatkan jadwal belajar mingguan yang optimal.
-Format respons HARUS berupa JSON array seperti ini (jangan tambahkan teks lain):
-[
-  {
-    "day": "Senin",
-    "subject": "Matematika",
-    "startTime": "16:00",
-    "endTime": "17:30",
-    "studyMethod": "Mengerjakan soal latihan",
-    "priority": "high"
-  }
-]
-
-Aturan:
-1. Prioritaskan mata pelajaran yang lemah
-2. Jangan jadwalkan lebih dari 2 jam per mata pelajaran per hari
-3. Sisipkan jeda 15 menit antar sesi
-4. Variasikan mata pelajaran setiap hari
-5. Sesuaikan metode belajar dengan gaya belajar $vakStyle
-6. Total belajar per hari tidak lebih dari $studyHoursPerDay jam
-''';
+      final prompt = '''
+Buatkan jadwal belajar mingguan untuk siswa $vakStyle.
+Mata pelajaran: $subjectList.
+${weakList.isNotEmpty ? 'Mata pelajaran yang perlu diperkuat: $weakList.' : ''}
+Waktu belajar: 16:00 - 21:00.
+Format respons: JSON array.
+[{"day": "Senin", "subject": "Math", "startTime": "16:00", "endTime": "17:30"}]''';
 
       final response = await _geminiClient.post(
         'models/${ApiConfig.geminiModel}:generateContent',
         {
-          'contents': [
-            {
-              'parts': [
-                {'text': prompt},
-              ],
-            },
-          ],
-          'generationConfig': {'temperature': 0.4, 'maxOutputTokens': 2048},
+          'contents': [{'parts': [{'text': prompt}]}],
         },
         queryParameters: {'key': ApiConfig.geminiApiKey},
       );
 
-      // Extract and parse the JSON schedule from Gemini's response
       final aiText = _extractGeminiResponse(response);
       return _parseOptimizedSchedule(aiText, userId);
     } catch (e) {
-      debugPrint('[ScheduleRepository] Gemini optimization error: $e');
-      // Fallback: simple local algorithm
-      return _generateSimpleStudySchedule(userId: userId);
-    }
-  }
-
-  /// Parse the JSON schedule array returned by Gemini.
-  List<ScheduleEntry> _parseOptimizedSchedule(String jsonText, String userId) {
-    try {
-      // Strip any markdown or preamble Gemini might add around the JSON
-      final startIdx = jsonText.indexOf('[');
-      final endIdx = jsonText.lastIndexOf(']');
-      if (startIdx == -1 || endIdx == -1) return [];
-
-      final jsonStr = jsonText.substring(startIdx, endIdx + 1);
-      final List<dynamic> items = jsonDecode(jsonStr) as List<dynamic>;
-
-      return items.map((item) {
-        final map = item as Map<String, dynamic>;
-        final day = map['day'] as String? ?? 'Senin';
-        final subject = map['subject'] as String? ?? '';
-        final startTime = map['startTime'] as String? ?? '16:00';
-        final endTime = map['endTime'] as String? ?? '17:00';
-        final method = map['studyMethod'] as String? ?? 'Belajar mandiri';
-
-        return ScheduleEntry(
-          id: 'opt_${DateTime.now().millisecondsSinceEpoch}_${subject.hashCode}',
-          userId: userId,
-          subject: subject,
-          subjectCode: _getSubjectCode(subject),
-          startTime: _parseTime(day, startTime),
-          endTime: _parseTime(day, endTime),
-          location: 'Rumah',
-          isRecurring: true,
-          recurringDays: [_dayToRecurringDay(day)],
-          notes: method,
-          createdAt: DateTime.now(),
-        );
-      }).toList();
-    } catch (e) {
-      debugPrint('[ScheduleRepository] Parse optimized schedule error: $e');
+      debugPrint('[ScheduleRepository] Optimization error: $e');
       return [];
     }
   }
 
-  /// Get schedule by ID.
-  ///
-  /// Backend: GET /schedule/{scheduleId}
-  Future<ScheduleEntry?> getScheduleById(String scheduleId) async {
-    try {
-      final response = await _apiClient.get(
-        ApiEndpoints.scheduleDetail.replaceFirst('{scheduleId}', scheduleId),
-      );
+  // --- Helper Methods ---
 
-      return ScheduleEntry.fromJson(
-        response['schedule'] as Map<String, dynamic>,
-      );
-    } catch (e) {
-      debugPrint('[ScheduleRepository] Get schedule by ID error: $e');
-      return null;
-    }
-  }
-
-  /// Extract text response from Gemini API.
   String _extractGeminiResponse(Map<String, dynamic> response) {
     try {
-      final candidates = response['candidates'] as List?;
-      if (candidates == null || candidates.isEmpty) {
-        return '';
-      }
-
-      final content = candidates[0]['content'] as Map<String, dynamic>?;
-      final parts = content?['parts'] as List?;
-
-      if (parts == null || parts.isEmpty) {
-        return '';
-      }
-
-      final text = parts[0]['text'] as String?;
-      return text ?? '';
+      return response['candidates'][0]['content']['parts'][0]['text'] ?? '';
     } catch (e) {
-      debugPrint('[ScheduleRepository] Extract response error: $e');
       return '';
     }
   }
 
-  /// Parse schedule from OCR text result.
-  ///
-  /// Simple parser - for production, use LLM to parse JSON.
   List<ScheduleEntry> _parseScheduleFromOCR(String rawText) {
     try {
-      // 1. Extract JSON from markdown if present
       String jsonStr = rawText;
       if (rawText.contains('```json')) {
         jsonStr = rawText.split('```json')[1].split('```')[0].trim();
-      } else if (rawText.contains('```')) {
-        jsonStr = rawText.split('```')[1].split('```')[0].trim();
       }
+      final data = jsonDecode(jsonStr);
+      final List schedulesJson = data['schedules'] ?? [];
 
-      final Map<String, dynamic> data = jsonDecode(jsonStr);
-      final List<dynamic> schedulesJson = data['schedules'] ?? [];
-
-      final schedules = <ScheduleEntry>[];
-      for (final s in schedulesJson) {
-        final day = s['day']?.toString().toUpperCase() ?? 'SENIN';
-        final subject = s['subject']?.toString() ?? '';
-        final startTime = s['startTime']?.toString() ?? '07:00';
-        final endTime = s['endTime']?.toString() ?? '08:30';
-        final location = s['location']?.toString() ?? '';
-
-        if (subject.isNotEmpty) {
-          schedules.add(
-            ScheduleEntry(
-              id: 'sch_${DateTime.now().millisecondsSinceEpoch}_${schedules.length}',
-              userId: 'user_temp',
-              subject: subject,
-              subjectCode: _getSubjectCode(subject),
-              startTime: _parseTime(day, startTime),
-              endTime: _parseTime(day, endTime),
-              location: location,
-              isRecurring: true,
-              recurringDays: [_dayToRecurringDay(day)],
-              createdAt: DateTime.now(),
-            ),
-          );
-        }
-      }
-      return schedules;
+      return schedulesJson.map((s) {
+        final day = s['day'] ?? 'SENIN';
+        return ScheduleEntry(
+          id: 'sch_${DateTime.now().millisecondsSinceEpoch}_${s.hashCode}',
+          userId: 'current',
+          subject: s['subject'] ?? '',
+          subjectCode: 'UNK',
+          startTime: _parseTime(day, s['startTime'] ?? '07:00'),
+          endTime: _parseTime(day, s['endTime'] ?? '08:30'),
+          location: s['location'] ?? '',
+          createdAt: DateTime.now(),
+        );
+      }).toList();
     } catch (e) {
-      debugPrint('[ScheduleRepository] JSON Parse error: $e');
-      // Fallback to simple line-by-line parsing if JSON fails
-      return _fallbackParseOCR(rawText);
+      return [];
     }
   }
 
-  List<ScheduleEntry> _fallbackParseOCR(String rawText) {
-    final schedules = <ScheduleEntry>[];
-    final lines = rawText.split('\n');
+  List<ScheduleEntry> _parseOptimizedSchedule(String jsonText, String userId) {
+    try {
+      final startIdx = jsonText.indexOf('[');
+      final endIdx = jsonText.lastIndexOf(']');
+      final jsonStr = jsonText.substring(startIdx, endIdx + 1);
+      final List items = jsonDecode(jsonStr);
 
-    for (final line in lines) {
-      final dayMatch = RegExp(
-        r'(SENIN|SELASA|RABU|KAMIS|JUMAT|SABTU)[:\s]+(\d{1,2}:\d{2})\s*[-–]\s*(\d{1,2}:\d{2})\s+(.+)',
-        caseSensitive: false,
-      ).firstMatch(line);
-
-      if (dayMatch != null) {
-        final day = dayMatch.group(1)?.toUpperCase() ?? '';
-        final startTime = dayMatch.group(2) ?? '';
-        final endTime = dayMatch.group(3) ?? '';
-        final subject = dayMatch.group(4)?.trim() ?? '';
-
-        if (subject.isNotEmpty) {
-          schedules.add(
-            ScheduleEntry(
-              id: 'sch_${DateTime.now().millisecondsSinceEpoch + schedules.length}',
-              userId: 'user_temp',
-              subject: subject,
-              subjectCode: _getSubjectCode(subject),
-              startTime: _parseTime(day, startTime),
-              endTime: _parseTime(day, endTime),
-              location: '',
-              isRecurring: true,
-              recurringDays: [_dayToRecurringDay(day)],
-              createdAt: DateTime.now(),
-            ),
-          );
-        }
-      }
+      return items.map((item) {
+        final day = item['day'] ?? 'Senin';
+        return ScheduleEntry(
+          id: 'opt_${DateTime.now().millisecondsSinceEpoch}_${item.hashCode}',
+          userId: userId,
+          subject: item['subject'] ?? '',
+          subjectCode: 'UNK',
+          startTime: _parseTime(day, item['startTime'] ?? '16:00'),
+          endTime: _parseTime(day, item['endTime'] ?? '17:30'),
+          location: 'Rumah',
+          createdAt: DateTime.now(),
+        );
+      }).toList();
+    } catch (e) {
+      return [];
     }
-    return schedules;
   }
 
-  /// Get subject code from subject name.
-  String _getSubjectCode(String subject) {
-    final subjectLower = subject.toLowerCase();
-    if (subjectLower.contains('matematika')) return 'MTK';
-    if (subjectLower.contains('fisika')) return 'FIS';
-    if (subjectLower.contains('kimia')) return 'KIM';
-    if (subjectLower.contains('biologi')) return 'BIO';
-    if (subjectLower.contains('bahasa indonesia')) return 'IND';
-    if (subjectLower.contains('bahasa inggris')) return 'ING';
-    if (subjectLower.contains('sejarah')) return 'SEJ';
-    if (subjectLower.contains('geografi')) return 'GEO';
-    if (subjectLower.contains('sosiologi')) return 'SOS';
-    if (subjectLower.contains('ekonomi')) return 'EKO';
-    if (subjectLower.contains('pkn')) return 'PKN';
-    if (subjectLower.contains('agama')) return 'AGM';
-    if (subjectLower.contains('olahraga')) return 'ORKES';
-    if (subjectLower.contains('seni')) return 'SEN';
-    if (subjectLower.contains('tik') || subjectLower.contains('informatika'))
-      return 'TIK';
-    return 'UNK';
-  }
-
-  /// Parse time string to DateTime.
   DateTime _parseTime(String day, String timeStr) {
     final parts = timeStr.split(':');
     final hour = int.tryParse(parts[0]) ?? 7;
     final minute = int.tryParse(parts[1]) ?? 0;
-
-    // Use current week's day
     final now = DateTime.now();
-    int dayOfWeek = 1; // Monday default
-
-    switch (day.toUpperCase()) {
-      case 'SENIN':
-        dayOfWeek = 1;
-        break;
-      case 'SELASA':
-        dayOfWeek = 2;
-        break;
-      case 'RABU':
-        dayOfWeek = 3;
-        break;
-      case 'KAMIS':
-        dayOfWeek = 4;
-        break;
-      case 'JUMAT':
-        dayOfWeek = 5;
-        break;
-      case 'SABTU':
-        dayOfWeek = 6;
-        break;
-    }
-
-    // Calculate next occurrence of this day
-    int daysUntilTarget = dayOfWeek - now.weekday;
-    if (daysUntilTarget < 0) daysUntilTarget += 7;
-
-    final targetDate = now.add(Duration(days: daysUntilTarget));
-
-    return DateTime(
-      targetDate.year,
-      targetDate.month,
-      targetDate.day,
-      hour,
-      minute,
-    );
+    return DateTime(now.year, now.month, now.day, hour, minute);
   }
 
-  /// Convert day string to recurring day code.
-  String _dayToRecurringDay(String day) {
-    switch (day.toUpperCase()) {
-      case 'SENIN':
-        return 'MON';
-      case 'SELASA':
-        return 'TUE';
-      case 'RABU':
-        return 'WED';
-      case 'KAMIS':
-        return 'THU';
-      case 'JUMAT':
-        return 'FRI';
-      case 'SABTU':
-        return 'SAT';
-      default:
-        return 'MON';
-    }
-  }
-
-  /// Get MIME type from file extension.
   String _getMimeType(String path) {
     if (path.endsWith('.png')) return 'image/png';
-    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg';
-    if (path.endsWith('.gif')) return 'image/gif';
-    if (path.endsWith('.webp')) return 'image/webp';
     return 'image/jpeg';
-  }
-
-  /// Simple fallback study schedule generator (used when Gemini is unavailable).
-  List<ScheduleEntry> _generateSimpleStudySchedule({
-    required String userId,
-    List<String>? difficultSubjects,
-  }) {
-    final studySchedule = <ScheduleEntry>[];
-    final subjectsToSchedule =
-        difficultSubjects ?? ['Matematika', 'Bahasa Indonesia'];
-
-    // Schedule subjects in evening (19:00-20:30)
-    int dayOffset = 0;
-    for (final subject in subjectsToSchedule) {
-      final studyTime = DateTime.now().add(
-        Duration(days: dayOffset, hours: 19),
-      );
-
-      studySchedule.add(
-        ScheduleEntry(
-          id: 'study_${DateTime.now().millisecondsSinceEpoch + dayOffset}',
-          userId: userId,
-          subject: subject,
-          subjectCode: _getSubjectCode(subject),
-          startTime: studyTime,
-          endTime: studyTime.add(const Duration(hours: 1, minutes: 30)),
-          location: 'Rumah',
-          notes: 'Fokus pada $subject',
-          isRecurring: true,
-          recurringDays: ['MON', 'WED', 'FRI'],
-          createdAt: DateTime.now(),
-        ),
-      );
-
-      dayOffset++;
-    }
-
-    return studySchedule;
   }
 }
 
 /// Provider for the schedule repository.
 final scheduleRepositoryProvider = Provider<ScheduleRepository>((ref) {
   return ScheduleRepository(
-    ref.watch(apiClientProvider),
+    ref.watch(supabaseClientProvider),
     ApiClient(baseUrl: ApiConfig.geminiBaseUrl),
   );
 });

@@ -1,12 +1,14 @@
 "use client";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
+import DownloadModal from "./DownloadModal";
 
 const FluidHero = () => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
   const { scrollYProgress } = useScroll({
     target: containerRef,
     offset: ["start start", "end start"],
@@ -82,7 +84,10 @@ const FluidHero = () => {
           </p>
 
           <div className="flex flex-wrap gap-4">
-            <button className="inline-flex items-center gap-2 px-7 py-4 bg-[var(--secondary)] text-white rounded-full font-bold text-base hover:opacity-90 transition-opacity shadow-lg">
+            <button
+              onClick={() => setIsDownloadOpen(true)}
+              className="inline-flex items-center gap-2 px-7 py-4 bg-[var(--secondary)] text-white rounded-full font-bold text-base hover:opacity-90 transition-opacity shadow-lg cursor-pointer"
+            >
               Download App
               <ArrowRight size={18} />
             </button>
@@ -142,6 +147,9 @@ const FluidHero = () => {
           </div>
         </motion.div>
       </div>
+
+      {/* Download Modal Component */}
+      <DownloadModal isOpen={isDownloadOpen} onClose={() => setIsDownloadOpen(false)} />
     </section>
   );
 };

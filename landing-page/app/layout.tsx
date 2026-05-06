@@ -12,6 +12,10 @@ export const metadata: Metadata = {
   title: "Study Buddy — Teman Belajar AI-mu",
   description:
     "Asisten belajar AI dengan pendekatan Socratic yang membantu kamu memahami materi, bukan sekadar menjawab soal. Gratis untuk semua siswa Indonesia.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/images/logo.png",
+  },
 };
 
 export default function RootLayout({

@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabase";
 
 export default function AiGenerator() {
   const [inputText, setInputText] = useState("");
+  const [contextText, setContextText] = useState("");
   const [subject, setSubject] = useState("Matematika");
   const [difficulty, setDifficulty] = useState<"Easy" | "Medium" | "Hard">(
     "Medium"
@@ -36,53 +37,69 @@ export default function AiGenerator() {
     "Sejarah",
   ];
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (!inputText) return;
     setIsGenerating(true);
-    setTimeout(() => {
-      if (mode === "questions") {
-        const generated = Array.from({ length: questionCount }, (_, i) => ({
+    try {
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: inputText,
+          context: contextText, // Send additional context
           subject,
-          topic: inputText.slice(0, 30),
-          question_text: `Pertanyaan ${i + 1} tentang ${inputText} (${difficulty})`,
-          options: {
-            A: "Pilihan A",
-            B: "Pilihan B",
-            C: "Pilihan C",
-            D: "Pilihan D",
-          },
-          correct_option: "B",
           difficulty,
-          explanation: `Penjelasan untuk pertanyaan ${i + 1} tentang ${inputText}.`,
-        }));
-        setQuestions(generated);
+          count: questionCount,
+          mode,
+        }),
+      });
+
+      const { data, error } = await response.json();
+      if (error) throw new Error(error);
+
+      if (mode === "questions") {
+        setQuestions(data);
         setMaterial(null);
       } else {
-        setMaterial(
-          `# ${inputText}\n\nMateri ini membahas poin-poin penting mengenai ${inputText} secara mendalam.\n\n## Konsep Dasar\nPenjelasan fundamental mengenai konsep ini.\n\n## Komponen Utama\nApa saja yang terlibat dalam proses ini.\n\n## Contoh Penerapan\nContoh dalam kehidupan sehari-hari atau soal ujian.\n\n---\n*Materi di-generate oleh Study Buddy AI.*`
-        );
+        setMaterial(data);
         setQuestions([]);
       }
+    } catch (err: any) {
+      alert("Gagal generate: " + err.message);
+    } finally {
       setIsGenerating(false);
-    }, 2000);
+    }
   };
 
   const handlePublish = async () => {
     setIsSaving(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error("Silakan login kembali");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Silakan login kembali");
 
-      const questionsToSave = questions.map((q) => ({
-        ...q,
-        teacher_id: userData.user!.id,
-      }));
+      // We save questions into 'quizzes' table (one quiz per topic or multiple questions)
+      // For now, let's group them as one quiz entry in Supabase if preferred,
+      // or individual questions. The Flutter app expects 'quizzes' table entries.
+      
+      const { error } = await supabase.from("quizzes").insert(
+        questions.map((q) => ({
+          subject: q.subject,
+          topic: q.topic,
+          question_text: q.question_text,
+          options: q.options,
+          correct_option: q.correct_option,
+          difficulty: q.difficulty,
+          explanation: q.explanation,
+          teacher_id: user.id,
+        }))
+      );
 
-      const { error } = await supabase.from("questions").insert(questionsToSave);
       if (error) throw error;
 
       alert("Berhasil! Soal telah dipublikasikan ke Bank Soal.");
       setQuestions([]);
       setInputText("");
+      setContextText("");
     } catch (err: any) {
       alert("Gagal menyimpan: " + err.message);
     } finally {
@@ -124,7 +141,7 @@ export default function AiGenerator() {
               }`}
             >
               <BookOpen size={14} />
-              Generate Materi
+              VAK Material
             </button>
           </div>
 
@@ -194,17 +211,30 @@ export default function AiGenerator() {
           <div className="mb-5">
             <label className="block text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2">
               {mode === "questions"
-                ? "Topik / Konteks Materi"
-                : "Topik Materi"}
+                ? "Topik / Judul Kuis"
+                : "Topik Materi VAK"}
             </label>
-            <textarea
+            <input
+              type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder={
-                mode === "questions"
-                  ? "Contoh: Turunan fungsi aljabar, aturan pangkat dan rantai..."
-                  : "Contoh: Ringkasan materi Perang Dunia II untuk kelas 11..."
-              }
+              placeholder="Contoh: Turunan Fungsi Aljabar"
+              className="w-full p-3.5 bg-[var(--background)] border border-[var(--divider)] rounded-xl text-sm font-bold text-[var(--foreground)] outline-none focus:border-[var(--primary)] transition-colors"
+            />
+          </div>
+
+          {/* Context Input (New) */}
+          <div className="mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider">
+                Konteks Tambahan (PDF/Teks)
+              </label>
+              <span className="text-[10px] font-bold text-[var(--primary)] bg-[var(--primary-lighter)] px-2 py-0.5 rounded">Opsional</span>
+            </div>
+            <textarea
+              value={contextText}
+              onChange={(e) => setContextText(e.target.value)}
+              placeholder="Tempel teks materi dari PDF atau catatan Anda di sini agar AI membuat soal yang relevan..."
               className="w-full h-32 p-4 bg-[var(--background)] border border-[var(--divider)] rounded-xl text-sm font-medium text-[var(--foreground)] placeholder:text-[var(--text-light)] focus:outline-none focus:border-[var(--primary)] transition-colors resize-none"
             />
           </div>

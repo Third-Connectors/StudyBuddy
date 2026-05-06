@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 /// User roles in the Study Buddy platform.
 enum UserRole { student, parent, teacher }
 
-/// User model representing authenticated users with full profile data.
+/// User model representing authenticated users with full profile data from Supabase.
 class UserModel extends Equatable {
   final String id;
   final String email;
@@ -12,13 +12,13 @@ class UserModel extends Equatable {
   final String? profileImageUrl;
   final String? schoolName;
   final String? gradeLevel;
-  final int xpPoints;
+  final int xp;
+  final int level;
+  final String? learningStyle;
   final int rank;
-  final int presencePercentage;
   final String targetUniversity;
   final int fireStreak;
   final DateTime createdAt;
-  final DateTime? lastLoginAt;
 
   const UserModel({
     required this.id,
@@ -28,13 +28,13 @@ class UserModel extends Equatable {
     this.profileImageUrl,
     this.schoolName,
     this.gradeLevel,
-    this.xpPoints = 0,
+    this.xp = 0,
+    this.level = 1,
+    this.learningStyle,
     this.rank = 1,
-    this.presencePercentage = 0,
     this.targetUniversity = 'Universitas Indonesia',
     this.fireStreak = 0,
     required this.createdAt,
-    this.lastLoginAt,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -46,20 +46,18 @@ class UserModel extends Equatable {
         (e) => e.name == (json['role'] ?? 'student'),
         orElse: () => UserRole.student,
       ),
-      profileImageUrl: (json['profile_image_url'] ?? json['profileImageUrl']) as String?,
-      schoolName: (json['school_name'] ?? json['schoolName']) as String?,
-      gradeLevel: (json['grade_level'] ?? json['gradeLevel'] ?? '12') as String?,
-      xpPoints: (json['xp_points'] ?? 0) as int,
+      profileImageUrl: json['profile_image_url'] as String?,
+      schoolName: json['school_name'] as String?,
+      gradeLevel: json['grade_level']?.toString() ?? '12',
+      xp: (json['xp'] ?? 0) as int,
+      level: (json['level'] ?? 1) as int,
+      learningStyle: json['learning_style'] as String?,
       rank: (json['rank'] ?? 1) as int,
-      presencePercentage: (json['presence_percentage'] ?? 0) as int,
-      targetUniversity: (json['target_university'] ?? 'Universitas Indonesia') as String,
+      targetUniversity: json['target_university'] ?? 'Universitas Indonesia',
       fireStreak: (json['fire_streak'] ?? 0) as int,
       createdAt: json['created_at'] != null 
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),
-      lastLoginAt: json['last_sign_in_at'] != null
-          ? DateTime.tryParse(json['last_sign_in_at'].toString())
-          : null,
     );
   }
 
@@ -69,16 +67,16 @@ class UserModel extends Equatable {
       'email': email,
       'name': name,
       'role': role.name,
-      'profileImageUrl': profileImageUrl,
-      'schoolName': schoolName,
-      'gradeLevel': gradeLevel,
-      'xp_points': xpPoints,
+      'profile_image_url': profileImageUrl,
+      'school_name': schoolName,
+      'grade_level': gradeLevel,
+      'xp': xp,
+      'level': level,
+      'learning_style': learningStyle,
       'rank': rank,
-      'presence_percentage': presencePercentage,
       'target_university': targetUniversity,
       'fire_streak': fireStreak,
-      'createdAt': createdAt.toIso8601String(),
-      'lastLoginAt': lastLoginAt?.toIso8601String(),
+      'created_at': createdAt.toIso8601String(),
     };
   }
 
@@ -90,13 +88,13 @@ class UserModel extends Equatable {
     String? profileImageUrl,
     String? schoolName,
     String? gradeLevel,
-    int? xpPoints,
+    int? xp,
+    int? level,
+    String? learningStyle,
     int? rank,
-    int? presencePercentage,
     String? targetUniversity,
     int? fireStreak,
     DateTime? createdAt,
-    DateTime? lastLoginAt,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -106,13 +104,13 @@ class UserModel extends Equatable {
       profileImageUrl: profileImageUrl ?? this.profileImageUrl,
       schoolName: schoolName ?? this.schoolName,
       gradeLevel: gradeLevel ?? this.gradeLevel,
-      xpPoints: xpPoints ?? this.xpPoints,
+      xp: xp ?? this.xp,
+      level: level ?? this.level,
+      learningStyle: learningStyle ?? this.learningStyle,
       rank: rank ?? this.rank,
-      presencePercentage: presencePercentage ?? this.presencePercentage,
       targetUniversity: targetUniversity ?? this.targetUniversity,
       fireStreak: fireStreak ?? this.fireStreak,
       createdAt: createdAt ?? this.createdAt,
-      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
     );
   }
 
@@ -125,12 +123,12 @@ class UserModel extends Equatable {
     profileImageUrl,
     schoolName,
     gradeLevel,
-    xpPoints,
+    xp,
+    level,
+    learningStyle,
     rank,
-    presencePercentage,
     targetUniversity,
     fireStreak,
     createdAt,
-    lastLoginAt,
   ];
 }

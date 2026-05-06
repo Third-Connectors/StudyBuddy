@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../core/services/local_storage_service.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../../core/theme/app_text_styles.dart';
 import '../data/vak_providers.dart';
@@ -79,6 +80,9 @@ class OnboardingCompleteScreen extends ConsumerWidget {
                   height: 54,
                   child: ElevatedButton(
                     onPressed: () {
+                      // Mark onboarding as complete
+                      localStorageProvider.setBool('onboarding_complete', true);
+
                       Navigator.of(
                         context,
                       ).pushNamedAndRemoveUntil('/home', (route) => false);

@@ -66,18 +66,33 @@ void main() async {
   // Enable edge-to-edge rendering on Android (draws behind nav bar)
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-  // 7. Run app
-  runApp(const ProviderScope(child: StudyBuddyApp()));
+  // 7. 🚀 Determine Initial Route
+  String initialRoute = '/onboarding1';
+
+  final session = Supabase.instance.client.auth.currentSession;
+  if (session != null) {
+    // User is logged in
+    initialRoute = '/home';
+
+    // 💡 Schedule daily study reminder at 7 PM
+    NotificationService.instance.scheduleDailyStudyReminder(hour: 19, minute: 0);
+  } else {
+    // Check if onboarding is already seen
+    final onboardingComplete = localStorageProvider.getBool('onboarding_complete');
+    if (onboardingComplete) {
+      initialRoute = '/login';
+    }
+  }
+
+  // 8. Run app
+  runApp(ProviderScope(child: StudyBuddyApp(initialRoute: initialRoute)));
 }
 
 /// Root [MaterialApp] widget for Study Buddy.
-///
-/// Responsibilities:
-/// - Applies [AppTheme.lightTheme] globally
-/// - Defines named routes for the onboarding flow and main app shell
-/// - Sets [OnboardingScreen1] as the initial route
 class StudyBuddyApp extends StatelessWidget {
-  const StudyBuddyApp({super.key});
+  final String initialRoute;
+
+  const StudyBuddyApp({super.key, required this.initialRoute});
 
   // ── Named Route Table ──────────────────────────────────────────────────────
   static final Map<String, WidgetBuilder> _routes = {
@@ -101,7 +116,7 @@ class StudyBuddyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
 
       // ── Routing ─────────────────────────────────────────────────────────
-      initialRoute: '/onboarding1',
+      initialRoute: initialRoute,
       routes: _routes,
 
       // ── Scroll behaviour — subtle over-scroll glow on Android ──────────

@@ -1,97 +1,86 @@
-// ════════════════════════════════════════════════════════════════════════════
-// 🧠 VAK REPOSITORY — KNN Classification for Learning Styles
-// ════════════════════════════════════════════════════════════════════════════
-//
-// VAK (Visual, Auditory, Kinesthetic) Assessment.
-//
-// Features:
-// - 20-question psychometric survey
-// - KNN-like classification algorithm
-// - Local calculation (MVP) + Backend ML service (Production)
-// - Recalibration once per semester
-//
-// Architecture:
-// - MVP: Local KNN calculation in Flutter
-// - Production: Python FastAPI ML Service with Scikit-learn KNN
-// ════════════════════════════════════════════════════════════════════════════
-
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 import '../models/vak_model.dart';
-import '../../../../core/network/api_client.dart';
-import '../../../../core/constants/api_config.dart';
-import '../../../../core/providers/api_providers.dart';
+import '../../../../core/providers/supabase_provider.dart';
 
 /// Repository for VAK (Visual, Auditory, Kinesthetic) assessment.
-///
-/// Handles:
-/// - Getting assessment questions
-/// - Submitting answers
-/// - Calculating learning style using KNN-like algorithm
-/// - Storing/retrieving results
 class VakRepository {
-  final ApiClient _apiClient;
+  final supabase.SupabaseClient _supabase;
 
-  VakRepository(this._apiClient);
+  VakRepository(this._supabase);
 
   /// Get VAK assessment questions.
   ///
-  /// MVP: Returns 20 hardcoded psychometric questions.
-  /// Production: Fetch from MongoDB via backend API.
+  /// For now, returns hardcoded questions.
+  /// Future: Fetch from 'vak_questions' table in Supabase.
   Future<List<VakQuestion>> getQuestions() async {
-    try {
-      // Try to fetch from backend first
-      final response = await _apiClient.get(ApiEndpoints.vakQuestions);
-      final questions = response['questions'] as List?;
-
-      if (questions != null && questions.isNotEmpty) {
-        return questions
-            .map((q) => VakQuestion.fromJson(q as Map<String, dynamic>))
-            .toList();
-      }
-    } catch (e) {
-      debugPrint('[VakRepository] Fetch from backend failed, using local: $e');
-    }
-
-    // Fallback: Return hardcoded questions for offline use
+    // Return hardcoded questions for reliability
     return _getHardcodedQuestions();
   }
 
-  /// Submit VAK answers and get result.
-  ///
-  /// MVP: Calculates result locally using KNN-like scoring.
-  /// Production: Sends to FastAPI ML Service for KNN classification.
+  /// Submit VAK answers and save to Supabase.
   Future<VakResult> submitAnswers({
     required String userId,
     required List<VakAnswer> answers,
   }) async {
     try {
-      // Try backend ML service first (Production)
-      final response = await _apiClient.post(
-        '${ApiConfig.mlServiceUrl}/vak/classify',
-        {'userId': userId, 'answers': answers.map((a) => a.toJson()).toList()},
-      );
+      // 1. Calculate result locally
+      final result = _calculateResultLocally(userId, answers);
 
-      return VakResult.fromJson(response['result'] as Map<String, dynamic>);
+      // 2. Save to 'vak_results' table
+      await _supabase.from('vak_results').insert({
+        'user_id': userId,
+        'visual_score': result.visualScore,
+        'auditory_score': result.auditoryScore,
+        'kinesthetic_score': result.kinestheticScore,
+        'dominant_style': result.dominantStyle.name,
+        'confidence_score': result.confidence,
+        'answers': answers.map((a) => a.toJson()).toList(),
+      });
+
+      // 3. Update user profile with learning style
+      await _supabase.from('profiles').update({
+        'learning_style': result.dominantStyle.name,
+      }).eq('id', userId);
+
+      return result;
     } catch (e) {
-      debugPrint('[VakRepository] ML service failed, using local: $e');
-
-      // Fallback: Local KNN-like calculation
-      return _calculateResultLocally(userId, answers);
+      debugPrint('[VakRepository] Submit answers error: $e');
+      throw Exception('Failed to save assessment: $e');
     }
   }
 
-  /// Get user's VAK result.
-  ///
-  /// Backend: GET /vak/result?userId=$userId
+  /// Get user's latest VAK result from Supabase.
   Future<VakResult?> getUserResult(String userId) async {
     try {
-      final response = await _apiClient.get(
-        '${ApiEndpoints.vakResult}?userId=$userId',
-      );
+      final response = await _supabase
+          .from('vak_results')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
 
-      return VakResult.fromJson(response['result'] as Map<String, dynamic>);
+      if (response == null) return null;
+
+      // Map Supabase snake_case to model camelCase
+      return VakResult(
+        userId: response['user_id'],
+        dominantStyle: VakStyle.values.firstWhere(
+          (e) => e.name == response['dominant_style'],
+          orElse: () => VakStyle.visual,
+        ),
+        visualScore: (response['visual_score'] as num).toDouble(),
+        auditoryScore: (response['auditory_score'] as num).toDouble(),
+        kinesthetic_score: (response['kinesthetic_score'] as num).toDouble(),
+        confidence: (response['confidence_score'] as num?)?.toDouble() ?? 0.0,
+        completedAt: DateTime.parse(response['completed_at']),
+        answers: (response['answers'] as List)
+            .map((e) => VakAnswer.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
     } catch (e) {
       debugPrint('[VakRepository] Get result error: $e');
       return null;
@@ -99,19 +88,17 @@ class VakRepository {
   }
 
   /// Check if user can recalibrate (once per semester).
-  ///
-  /// Backend: GET /vak/can-recalibrate?userId=$userId
   Future<bool> canRecalibrate(String userId) async {
     try {
-      final response = await _apiClient.get(
-        '${ApiEndpoints.vakResult}/can-recalibrate?userId=$userId',
-      );
-      return response['canRecalibrate'] as bool? ?? true;
-    } catch (e) {
-      debugPrint('[VakRepository] Can recalibrate error: $e');
+      final result = await getUserResult(userId);
+      if (result == null) return true;
 
-      // Fallback: Check local storage for last assessment date
-      return await _checkLocalRecalibrationEligibility(userId);
+      // Allow if last assessment was > 4 months ago
+      final monthsSince =
+          DateTime.now().difference(result.completedAt).inDays ~/ 30;
+      return monthsSince >= 4;
+    } catch (e) {
+      return true;
     }
   }
 
@@ -363,5 +350,5 @@ class VakRepository {
 
 /// Provider for the VAK repository.
 final vakRepositoryProvider = Provider<VakRepository>((ref) {
-  return VakRepository(ref.watch(apiClientProvider));
+  return VakRepository(ref.watch(supabaseClientProvider));
 });

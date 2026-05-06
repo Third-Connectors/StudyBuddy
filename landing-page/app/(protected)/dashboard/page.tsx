@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   BookOpen,
@@ -13,88 +14,9 @@ import {
   ChevronRight,
 } from "lucide-react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
 
-/* ── Mock data ── */
-const STATS = [
-  {
-    label: "Total Soal",
-    value: "128",
-    change: "+12 minggu ini",
-    icon: BookOpen,
-    color: "var(--primary)",
-    bg: "var(--primary-lighter)",
-  },
-  {
-    label: "Total Siswa",
-    value: "47",
-    change: "+3 baru",
-    icon: Users,
-    color: "var(--secondary)",
-    bg: "#D6F0DF",
-  },
-  {
-    label: "Rata-rata Skor",
-    value: "76%",
-    change: "+4% vs bulan lalu",
-    icon: TrendingUp,
-    color: "#3B82F6",
-    bg: "#EFF6FF",
-  },
-  {
-    label: "Soal AI Generated",
-    value: "34",
-    change: "26% dari total",
-    icon: Sparkles,
-    color: "#8B5CF6",
-    bg: "#F5F3FF",
-  },
-];
-
-const RECENT_ACTIVITY = [
-  {
-    icon: CheckCircle2,
-    color: "#16A34A",
-    text: "Rina Putri menyelesaikan quiz Turunan",
-    time: "5 menit lalu",
-  },
-  {
-    icon: FileText,
-    color: "var(--primary)",
-    text: "Anda menambahkan 3 soal Logaritma baru",
-    time: "1 jam lalu",
-  },
-  {
-    icon: AlertTriangle,
-    color: "#EAB308",
-    text: "5 siswa gagal di soal Hukum Newton #3",
-    time: "2 jam lalu",
-  },
-  {
-    icon: CheckCircle2,
-    color: "#16A34A",
-    text: "Ahmad Fauzi menjawab 8/10 benar di Biologi",
-    time: "3 jam lalu",
-  },
-  {
-    icon: Sparkles,
-    color: "#8B5CF6",
-    text: "AI Generator membuat 5 soal Trigonometri",
-    time: "Kemarin",
-  },
-];
-
-const WEAK_TOPICS = [
-  { topic: "Turunan Berantai", accuracy: 42, subject: "Matematika" },
-  { topic: "Hukum Newton III", accuracy: 51, subject: "Fisika" },
-  { topic: "Struktur Sel", accuracy: 58, subject: "Biologi" },
-];
-
-const TOP_STUDENTS = [
-  { name: "Rina Putri", score: 92, streak: 14 },
-  { name: "Ahmad Fauzi", score: 88, streak: 7 },
-  { name: "Siti Aisyah", score: 85, streak: 21 },
-];
-
+/* ── Animation variants ── */
 const container = {
   hidden: {},
   visible: { transition: { staggerChildren: 0.06 } },
@@ -105,6 +27,77 @@ const item = {
 };
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState([
+    { label: "Total Soal", value: "0", change: "Memuat...", icon: BookOpen, color: "var(--primary)", bg: "var(--primary-lighter)" },
+    { label: "Total Siswa", value: "0", change: "Memuat...", icon: Users, color: "var(--secondary)", bg: "#D6F0DF" },
+    { label: "Rata-rata Skor", value: "0%", change: "Memuat...", icon: TrendingUp, color: "#3B82F6", bg: "#EFF6FF" },
+    { label: "XP Terkumpul", value: "0", change: "Seluruh siswa", icon: Sparkles, color: "#8B5CF6", bg: "#F5F3FF" },
+  ]);
+
+  const [activities, setActivities] = useState<any[]>([]);
+  const [topStudents, setTopStudents] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  async function fetchDashboardData() {
+    try {
+      setIsLoading(true);
+
+      // 1. Fetch Total Quizzes
+      const { count: quizCount } = await supabase.from("quizzes").select("*", { count: "exact", head: true });
+
+      // 2. Fetch Total Students
+      const { count: studentCount } = await supabase.from("profiles").select("*", { count: "exact", head: true });
+
+      // 3. Fetch Average Score & Total XP
+      const { data: results } = await supabase.from("quiz_results").select("score");
+      const avgScore = results && results.length > 0 
+        ? Math.round(results.reduce((acc, curr) => acc + curr.score, 0) / results.length)
+        : 0;
+
+      const { data: profiles } = await supabase.from("profiles").select("xp, name").order("xp", { ascending: false }).limit(3);
+      const totalXp = profiles?.reduce((acc, curr) => acc + (curr.xp || 0), 0) || 0;
+
+      // 4. Fetch Recent Activity
+      const { data: recentResults } = await supabase
+        .from("quiz_results")
+        .select(`
+          score,
+          created_at,
+          profiles (name)
+        `)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      setStats([
+        { label: "Total Soal", value: String(quizCount || 0), change: "Update otomatis", icon: BookOpen, color: "var(--primary)", bg: "var(--primary-lighter)" },
+        { label: "Total Siswa", value: String(studentCount || 0), change: "Siswa aktif", icon: Users, color: "var(--secondary)", bg: "#D6F0DF" },
+        { label: "Rata-rata Skor", value: `${avgScore}%`, change: "Berdasarkan kuis terbaru", icon: TrendingUp, color: "#3B82F6", bg: "#EFF6FF" },
+        { label: "Total XP Siswa", value: totalXp.toLocaleString(), change: "Akumulasi", icon: Sparkles, color: "#8B5CF6", bg: "#F5F3FF" },
+      ]);
+
+      setActivities(recentResults?.map(res => ({
+        icon: CheckCircle2,
+        color: "#16A34A",
+        text: `${(res.profiles as any)?.name || "Siswa"} skor ${res.score}%`,
+        time: new Date(res.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })) || []);
+
+      setTopStudents(profiles?.map(p => ({
+        name: p.name,
+        score: p.xp, // Displaying XP as score for now
+        streak: 0 // Mock streak as it's not in DB yet
+      })) || []);
+
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
   return (
     <div className="space-y-8">
       {/* ── Page Title ── */}
@@ -124,7 +117,7 @@ export default function DashboardPage() {
         animate="visible"
         className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4"
       >
-        {STATS.map((stat, i) => (
+        {stats.map((stat, i) => (
           <motion.div
             key={i}
             variants={item}
@@ -174,15 +167,15 @@ export default function DashboardPage() {
               <div>
                 <h3 className="font-bold text-base mb-1">Insight AI</h3>
                 <p className="text-white/60 text-sm font-medium leading-relaxed">
-                  Siswa paling banyak kesulitan di soal <strong className="text-white/90">Turunan Berantai</strong> dan <strong className="text-white/90">Hukum Newton III</strong>. 
-                  Pertimbangkan untuk membuat materi review atau latihan tambahan di topik ini.
+                  Berdasarkan data kuis terbaru, rata-rata akurasi kelas berada di angka <strong className="text-white/90">{stats[2].value}</strong>. 
+                  {activities.length > 0 ? ` Aktivitas terbaru menunjukkan ${(activities[0] as any).text} pada sesi terakhir.` : " Belum ada aktivitas kuis yang terekam hari ini."}
                 </p>
               </div>
             </div>
             <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-[var(--primary)]/15 rounded-full blur-3xl" />
           </motion.div>
 
-          {/* Weak Topics */}
+          {/* Weak Topics - MOCKED for now as we need more complex logic for topic analysis */}
           <div
             className="bg-[var(--surface)] rounded-2xl p-6 border border-[var(--divider)]"
             style={{ boxShadow: "0 1px 8px var(--card-shadow)" }}
@@ -199,7 +192,10 @@ export default function DashboardPage() {
               </Link>
             </div>
             <div className="space-y-3">
-              {WEAK_TOPICS.map((topic, i) => (
+              {[
+                { topic: "Turunan Berantai", accuracy: 42, subject: "Matematika" },
+                { topic: "Hukum Newton III", accuracy: 51, subject: "Fisika" },
+              ].map((topic, i) => (
                 <div
                   key={i}
                   className="flex items-center gap-4 p-4 rounded-xl bg-[var(--background)] border border-[var(--divider)]/50"
@@ -223,7 +219,6 @@ export default function DashboardPage() {
                       Akurasi
                     </p>
                   </div>
-                  {/* Mini progress bar */}
                   <div className="w-20 h-2 bg-red-100 rounded-full overflow-hidden">
                     <div
                       className="h-full bg-red-400 rounded-full"
@@ -242,7 +237,7 @@ export default function DashboardPage() {
           >
             <div className="flex items-center justify-between mb-5">
               <h3 className="font-bold text-[var(--foreground)]">
-                Siswa Terbaik Minggu Ini
+                Siswa dengan XP Tertinggi
               </h3>
               <Link
                 href="/dashboard/students"
@@ -252,7 +247,7 @@ export default function DashboardPage() {
               </Link>
             </div>
             <div className="space-y-3">
-              {TOP_STUDENTS.map((s, i) => (
+              {topStudents.map((s, i) => (
                 <div
                   key={i}
                   className="flex items-center gap-4 p-4 rounded-xl bg-[var(--background)] border border-[var(--divider)]/50"
@@ -275,15 +270,15 @@ export default function DashboardPage() {
                       {s.name}
                     </p>
                     <p className="text-xs font-medium text-[var(--text-light)]">
-                      🔥 Streak {s.streak} hari
+                      Level {Math.floor(s.score / 1000) + 1}
                     </p>
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-extrabold text-[var(--foreground)]">
-                      {s.score}%
+                      {s.score.toLocaleString()}
                     </p>
                     <p className="text-[10px] font-bold text-[var(--text-light)] uppercase">
-                      Skor
+                      XP
                     </p>
                   </div>
                 </div>
@@ -348,7 +343,7 @@ export default function DashboardPage() {
               Aktivitas Terbaru
             </h3>
             <div className="space-y-1">
-              {RECENT_ACTIVITY.map((act, i) => (
+              {activities.length > 0 ? activities.map((act, i) => (
                 <div
                   key={i}
                   className="flex gap-3 p-3 rounded-xl hover:bg-[var(--background)] transition-colors"
@@ -374,11 +369,16 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <p className="text-xs text-[var(--text-light)] p-4 text-center">Belum ada aktivitas baru</p>
+              )}
             </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
     </div>
   );
 }

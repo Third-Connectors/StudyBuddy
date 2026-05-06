@@ -147,24 +147,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
       child: Column(
         children: [
-          Container(
-            width: 90,
-            height: 90,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.3), width: 4),
-            ),
-            child: Center(
-              child: Text(
-                _user?.name.substring(0, 1).toUpperCase() ?? 'S',
-                style: GoogleFonts.nunito(
-                  fontSize: 40,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.primaryOrange,
+          Stack(
+            alignment: Alignment.bottomRight,
+            children: [
+              Container(
+                width: 90,
+                height: 90,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white.withOpacity(0.3), width: 4),
+                ),
+                child: Center(
+                  child: Text(
+                    _user?.name.substring(0, 1).toUpperCase() ?? 'S',
+                    style: GoogleFonts.nunito(
+                      fontSize: 40,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.primaryOrange,
+                    ),
+                  ),
                 ),
               ),
-            ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+                ),
+                child: Text(
+                  'Lv. ${_user?.level ?? 1}',
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.primaryOrange,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
           Text(
@@ -189,11 +210,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  Widget _buildLearningStyleCard(VakResult? result) {
-    final styleName = result?.dominantStyleLabel ?? 'Belum Tes';
-    final styleEmoji = result?.dominantStyleEmoji ?? '❓';
-    final styleDesc = result != null 
-        ? 'Kamu belajar paling efektif dengan gaya ${result.dominantStyleLabel.toLowerCase()}.' 
+  Widget _buildLearningStyleCard(VakResult? localResult) {
+    // Use Supabase style first, fallback to local shared_prefs result
+    final styleFromDb = _user?.learningStyle;
+    final styleName = styleFromDb ?? localResult?.dominantStyleLabel ?? 'Belum Tes';
+    
+    final styleEmoji = styleFromDb != null 
+        ? (styleFromDb.contains('Visual') ? '👁️' : styleFromDb.contains('Auditory') ? '🎧' : '🏃')
+        : (localResult?.dominantStyleEmoji ?? '❓');
+
+    final styleDesc = styleName != 'Belum Tes'
+        ? 'Kamu belajar paling efektif dengan gaya ${styleName.toLowerCase()}.' 
         : 'Temukan gaya belajarmu untuk hasil yang lebih maksimal!';
 
     return Container(
@@ -236,17 +263,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 ),
               ),
               TextButton(
-                onPressed: () {
-                  // Reset VAK state before retaking
+                onPressed: () async {
                   ref.read(vakCurrentIndexProvider.notifier).state = 0;
                   ref.read(vakAnswersProvider.notifier).state = {};
-                  Navigator.of(context).pushNamed(
+                  await Navigator.of(context).pushNamed(
                     '/vak_test',
                     arguments: {'currentStep': 1, 'totalSteps': 1},
                   );
+                  _loadProfile(); // Reload after test
                 },
                 child: Text(
-                  result == null ? 'Mulai Tes' : 'Tes Ulang',
+                  styleName == 'Belum Tes' ? 'Mulai Tes' : 'Tes Ulang',
                   style: GoogleFonts.nunito(fontWeight: FontWeight.w700, color: AppColors.primaryOrange),
                 ),
               ),
@@ -267,7 +294,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       children: [
         Expanded(child: _buildStatItem(Icons.quiz_rounded, '12', 'Quiz Selesai')),
         const SizedBox(width: 12),
-        Expanded(child: _buildStatItem(Icons.bolt_rounded, '1,250', 'Total XP')),
+        Expanded(child: _buildStatItem(Icons.bolt_rounded, _user?.xp.toString() ?? '0', 'Total XP')),
         const SizedBox(width: 12),
         Expanded(child: _buildStatItem(Icons.stars_rounded, '85%', 'Rata-rata')),
       ],
