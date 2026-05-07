@@ -136,7 +136,7 @@ const FluidHero = () => {
               className="relative"
             >
               <Image
-                src="/images/hero-v3.png"
+                src="/images/hero-v4.png"
                 alt="Study Buddy — tampilan aplikasi mobile"
                 width={450}
                 height={900}
