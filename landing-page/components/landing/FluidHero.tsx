@@ -117,7 +117,7 @@ const FluidHero = () => {
           style={{ scale }}
           className="relative flex justify-center"
         >
-          <div className="relative z-10 w-full max-w-[300px] group">
+          <div className="relative z-10 w-full max-w-[480px] lg:max-w-[540px] group">
             {/* Soft glow behind phone */}
             <div
               className="absolute -inset-12 rounded-full blur-[100px] opacity-15 group-hover:opacity-25 transition-opacity duration-700"
@@ -138,8 +138,8 @@ const FluidHero = () => {
               <Image
                 src="/images/hero-v4.png"
                 alt="Study Buddy — tampilan aplikasi mobile"
-                width={450}
-                height={900}
+                width={600}
+                height={500}
                 className="w-full h-auto drop-shadow-2xl"
                 priority
               />
