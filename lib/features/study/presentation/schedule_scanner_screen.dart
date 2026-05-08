@@ -37,7 +37,7 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Jadwal Pelajaran'),
+        title: const Text('Jadwal Belajar di Rumah'),
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
@@ -146,7 +146,7 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text(
-                'Jadwal Kamu',
+                'Jadwal Belajar Kamu',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               Text(
@@ -183,6 +183,7 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
           const SizedBox(height: 16),
           Text(
             'Belum ada jadwal',
+            textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
               color: Colors.grey[600],
@@ -190,9 +191,13 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Scan jadwal pelajaranmu untuk memulai',
-            style: TextStyle(color: Colors.grey),
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 32),
+            child: Text(
+              'Scan jadwal pelajaranmu untuk membuat jadwal belajar di rumah',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, height: 1.3),
+            ),
           ),
         ],
       ),

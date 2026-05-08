@@ -27,14 +27,50 @@ class AuthRepository {
         throw Exception('Login failed - no user returned');
       }
 
-      // Fetch profile data
-      final profileData = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', response.user!.id)
-          .single();
+      // Fetch profile data with auto-create fallback
+      try {
+        final profileData = await _supabase
+            .from('profiles')
+            .select()
+            .eq('id', response.user!.id)
+            .single();
 
-      return app_models.UserModel.fromJson(profileData);
+        return app_models.UserModel.fromJson(profileData);
+      } catch (e) {
+        // Auto-create profile row if not found
+        final userEmail = response.user!.email ?? '';
+        final userId = response.user!.id;
+
+        final newProfile = {
+          'id': userId,
+          'email': userEmail,
+          'name': response.user!.userMetadata?['name'] ?? response.user!.email?.split('@').first ?? 'Student',
+        };
+
+        try {
+          await _supabase.from('profiles').insert(newProfile);
+        } catch (insertError) {
+          if (insertError.toString().contains('23505') || insertError.toString().contains('unique constraint')) {
+            // Gunakan sub-addressing unik demi melewati unique constraint seeder
+            final parts = userEmail.split('@');
+            final uniqueEmail = parts.length == 2 
+                ? '${parts[0]}+${userId.substring(0, 5)}@${parts[1]}'
+                : '$userEmail+${userId.substring(0, 5)}';
+            newProfile['email'] = uniqueEmail;
+            await _supabase.from('profiles').insert(newProfile);
+          } else {
+            rethrow;
+          }
+        }
+
+        final profileData = await _supabase
+            .from('profiles')
+            .select()
+            .eq('id', response.user!.id)
+            .single();
+
+        return app_models.UserModel.fromJson(profileData);
+      }
     } catch (e) {
       debugPrint('[AuthRepository] Login error: $e');
       throw Exception('Login failed: $e');
@@ -100,13 +136,49 @@ class AuthRepository {
         throw Exception('No authenticated user');
       }
 
-      final profileData = await _supabase
-          .from('profiles')
-          .select()
-          .eq('id', user.id)
-          .single();
+      try {
+        final profileData = await _supabase
+            .from('profiles')
+            .select()
+            .eq('id', user.id)
+            .single();
 
-      return app_models.UserModel.fromJson(profileData);
+        return app_models.UserModel.fromJson(profileData);
+      } catch (e) {
+        // Auto-create profil jika PGRST116 (0 rows returned)
+        final userEmail = user.email ?? '';
+        final userId = user.id;
+
+        final newProfile = {
+          'id': userId,
+          'email': userEmail,
+          'name': user.userMetadata?['name'] ?? user.email?.split('@').first ?? 'Student',
+        };
+
+        try {
+          await _supabase.from('profiles').insert(newProfile);
+        } catch (insertError) {
+          if (insertError.toString().contains('23505') || insertError.toString().contains('unique constraint')) {
+            // Gunakan sub-addressing unik demi melewati unique constraint seeder
+            final parts = userEmail.split('@');
+            final uniqueEmail = parts.length == 2 
+                ? '${parts[0]}+${userId.substring(0, 5)}@${parts[1]}'
+                : '$userEmail+${userId.substring(0, 5)}';
+            newProfile['email'] = uniqueEmail;
+            await _supabase.from('profiles').insert(newProfile);
+          } else {
+            rethrow;
+          }
+        }
+
+        final profileData = await _supabase
+            .from('profiles')
+            .select()
+            .eq('id', user.id)
+            .single();
+
+        return app_models.UserModel.fromJson(profileData);
+      }
     } catch (e) {
       debugPrint('[AuthRepository] Get profile error: $e');
       throw Exception('Failed to load profile: $e');

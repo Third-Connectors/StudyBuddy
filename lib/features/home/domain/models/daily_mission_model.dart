@@ -17,12 +17,12 @@ class DailyMission {
 
   factory DailyMission.fromJson(Map<String, dynamic> json) {
     return DailyMission(
-      id: json['id'],
-      title: json['title'],
-      description: json['description'],
+      id: json['id'] ?? '',
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
       subject: json['subject'],
       isCompleted: json['is_completed'] ?? false,
-      pointsReward: json['points_reward'] ?? 50,
+      pointsReward: (json['points_reward'] as num?)?.toInt() ?? 50,
     );
   }
 }

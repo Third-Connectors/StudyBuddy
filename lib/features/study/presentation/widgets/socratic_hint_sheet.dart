@@ -18,6 +18,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../data/models/chat_model.dart';
 import '../../domain/providers/practice_provider.dart';
+import '../../../subscription/data/subscription_provider.dart';
+import '../../../subscription/presentation/subscription_screen.dart';
 
 /// Shows the Socratic Hint bottom sheet.
 ///
@@ -79,7 +81,11 @@ class _SocraticHintSheetState extends ConsumerState<SocraticHintSheet> {
       final hintState =
           state.hintStates[widget.questionIndex] ?? const QuestionHintState();
       if (hintState.hints.isEmpty && !hintState.isLoading) {
-        ref.read(practiceNotifierProvider.notifier).requestHint();
+        final subNotifier = ref.read(subscriptionProvider.notifier);
+        if (subNotifier.canChat) {
+          subNotifier.incrementAiChat();
+          ref.read(practiceNotifierProvider.notifier).requestHint();
+        }
       }
     });
   }
@@ -106,8 +112,12 @@ class _SocraticHintSheetState extends ConsumerState<SocraticHintSheet> {
   void _sendMessage() {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
+    final subNotifier = ref.read(subscriptionProvider.notifier);
+    if (!subNotifier.canChat) return;
+
     _controller.clear();
     FocusScope.of(context).unfocus();
+    subNotifier.incrementAiChat();
     ref
         .read(practiceNotifierProvider.notifier)
         .requestHint(studentMessage: text);
@@ -468,6 +478,86 @@ class _SocraticHintSheetState extends ConsumerState<SocraticHintSheet> {
   }
 
   Widget _buildInputBar(QuestionHintState hintState, int remaining) {
+    final subState = ref.watch(subscriptionProvider);
+
+    if (!subState.isSubscribed) {
+      return Container(
+        padding: EdgeInsets.fromLTRB(
+          16,
+          16,
+          16,
+          MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 10,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.workspace_premium_rounded, color: Colors.amber, size: 24),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Socratic AI Tutor Memerlukan Langganan',
+                    style: GoogleFonts.nunito(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Upgrade ke StudyBuddy PRO sekarang juga untuk mendapatkan Socratic AI Tutor tanpa batas, scan jadwal unlimited, & SNBT Premium!',
+              style: GoogleFonts.nunito(
+                fontSize: 12,
+                color: AppColors.textSecondary,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryOrange,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const SubscriptionScreen()),
+                  );
+                },
+                child: Text(
+                  'Upgrade ke PRO — Rp 29.000/bln',
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     // Can send if: hints remain AND not currently loading AND at least 1 hint shown
     final canSend =
         remaining > 0 && !hintState.isLoading && hintState.hints.isNotEmpty;

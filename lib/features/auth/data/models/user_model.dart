@@ -49,12 +49,12 @@ class UserModel extends Equatable {
       profileImageUrl: json['profile_image_url'] as String?,
       schoolName: json['school_name'] as String?,
       gradeLevel: json['grade_level']?.toString() ?? '12',
-      xp: (json['xp'] ?? 0) as int,
-      level: (json['level'] ?? 1) as int,
+      xp: (json['xp'] as num?)?.toInt() ?? 0,
+      level: (json['level'] as num?)?.toInt() ?? 1,
       learningStyle: json['learning_style'] as String?,
-      rank: (json['rank'] ?? 1) as int,
+      rank: (json['rank'] as num?)?.toInt() ?? 1,
       targetUniversity: json['target_university'] ?? 'Universitas Indonesia',
-      fireStreak: (json['fire_streak'] ?? 0) as int,
+      fireStreak: (json['fire_streak'] as num?)?.toInt() ?? 0,
       createdAt: json['created_at'] != null 
           ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
           : DateTime.now(),

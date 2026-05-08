@@ -144,38 +144,38 @@ export default function DownloadModal({ isOpen, onClose }: DownloadModalProps) {
 
               {device === "ios" && (
                 <div className="space-y-6">
-                  <div className="p-6 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] hover:border-[var(--primary)] transition-all">
+                  <div className="p-6 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] hover:border-amber-500 transition-all">
                     <div className="flex gap-4 items-start">
-                      <div className="p-4 rounded-xl bg-slate-100 text-slate-800">
+                      <div className="p-4 rounded-xl bg-amber-50 text-amber-600">
                         <Apple size={28} />
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-extrabold text-lg text-[var(--foreground)]">
-                          Apple iOS (TestFlight / App Store)
-                        </h4>
+                        <div className="flex items-center gap-2">
+                          <h4 className="font-extrabold text-lg text-[var(--foreground)]">
+                            Apple iOS
+                          </h4>
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-extrabold uppercase">
+                            Dalam Pengembangan
+                          </span>
+                        </div>
                         <p className="text-sm text-[var(--text-secondary)] font-medium mt-1">
-                          Saat ini versi iOS sedang dalam tahap peninjauan TestFlight beta tertutup.
+                          Aplikasi Study Buddy untuk versi iOS (iPhone & iPad) saat ini sedang dalam proses pengembangan intensif agar siap diluncurkan di App Store.
                         </p>
                       </div>
                     </div>
 
-                    <div className="mt-6 p-5 rounded-xl bg-[var(--background)] border border-dashed border-[var(--divider)] space-y-3">
-                      <p className="text-xs font-bold text-[var(--foreground)] uppercase tracking-wider">
-                        Langkah Penginstalan:
+                    <div className="mt-6 p-5 rounded-xl bg-[var(--background)] border border-dashed border-[var(--divider)]">
+                      <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
+                        Kami sedang menyempurnakan performa, animasi, dan kecerdasan asisten Socratic AI di ekosistem iOS untuk memberikan pengalaman belajar terbaik.
                       </p>
-                      <ol className="text-xs text-[var(--foreground)] font-medium space-y-2 list-decimal list-inside leading-relaxed">
-                        <li>Unduh aplikasi <strong>TestFlight</strong> dari App Store di iPhone/iPad Anda.</li>
-                        <li>Hubungi tim Study Buddy untuk mendaftarkan email Apple ID Anda ke akses beta.</li>
-                        <li>Buka tautan undangan TestFlight dari email Anda untuk mulai belajar.</li>
-                      </ol>
                     </div>
 
                     <button
-                      onClick={() => alert("Pendaftaran akses beta iOS akan segera dikirim melalui email Anda.")}
-                      className="w-full mt-6 py-4 bg-[var(--secondary)] hover:opacity-90 text-white font-bold rounded-2xl transition-all shadow-md flex items-center justify-center gap-2"
+                      disabled
+                      className="w-full mt-6 py-4 bg-slate-100 text-slate-400 font-bold rounded-2xl transition-all flex items-center justify-center gap-2 cursor-not-allowed"
                     >
                       <Apple size={18} />
-                      Daftar Akses Beta iOS
+                      Segera Hadir di App Store
                     </button>
                   </div>
                 </div>
@@ -220,37 +220,42 @@ export default function DownloadModal({ isOpen, onClose }: DownloadModalProps) {
                   </div>
 
                   {/* iOS Side */}
-                  <div className="p-6 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] flex flex-col justify-between hover:border-[var(--secondary)] transition-all">
+                  <div className="p-6 rounded-2xl border border-[var(--divider)] bg-[var(--surface)] flex flex-col justify-between hover:border-amber-500 transition-all">
                     <div>
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="p-2 rounded-lg bg-emerald-50 text-[var(--secondary)]">
-                          <Apple size={20} />
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <div className="p-2 rounded-lg bg-amber-50 text-amber-600">
+                            <Apple size={20} />
+                          </div>
+                          <h4 className="font-extrabold text-base text-[var(--foreground)]">
+                            iOS Versi
+                          </h4>
                         </div>
-                        <h4 className="font-extrabold text-base text-[var(--foreground)]">
-                          iOS Versi (Beta)
-                        </h4>
+                        <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[9px] font-extrabold uppercase">
+                          Under Dev
+                        </span>
                       </div>
                       <p className="text-xs text-[var(--text-secondary)] font-semibold leading-relaxed">
-                        Akses beta eksklusif melalui platform TestFlight dari Apple. Hubungi pengembang untuk mendaftarkan email Apple ID Anda.
+                        Pengembangan intensif sedang berjalan untuk menghadirkan Study Buddy secara penuh ke pengguna iPhone dan iPad dalam waktu dekat.
                       </p>
                     </div>
 
                     <div className="my-5 flex flex-col items-center gap-3">
-                      <div className="w-32 h-32 bg-slate-100 rounded-xl flex items-center justify-center border border-[var(--divider)] relative overflow-hidden group">
-                        <QrCode size={90} className="text-slate-700 group-hover:scale-105 transition-transform" />
-                        <div className="absolute inset-0 bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span className="text-[10px] font-bold text-[var(--secondary)] text-center px-2">Scan untuk Info iOS</span>
+                      <div className="w-32 h-32 bg-slate-50 rounded-xl flex items-center justify-center border border-[var(--divider)] relative overflow-hidden group">
+                        <div className="absolute inset-0 bg-white/95 flex flex-col items-center justify-center p-3">
+                          <span className="text-[20px] mb-1">⏳</span>
+                          <span className="text-[10px] font-extrabold text-amber-600 text-center">Dalam Pengembangan</span>
                         </div>
                       </div>
-                      <span className="text-[10px] text-[var(--text-light)] font-bold">iOS TestFlight Beta</span>
+                      <span className="text-[10px] text-[var(--text-light)] font-bold">iOS Coming Soon</span>
                     </div>
 
                     <button
-                      onClick={() => alert("Pendaftaran akses beta iOS akan segera dikirim melalui email Anda.")}
-                      className="w-full py-3 bg-[var(--secondary)] hover:opacity-90 text-white font-bold rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2"
+                      disabled
+                      className="w-full py-3 bg-slate-100 text-slate-400 font-bold rounded-xl text-sm transition-all flex items-center justify-center gap-2 cursor-not-allowed"
                     >
                       <Apple size={15} />
-                      Daftar Beta
+                      Segera Hadir
                     </button>
                   </div>
                 </div>

@@ -11,6 +11,7 @@ import 'package:studybuddy/features/auth/data/models/user_model.dart';
 import '../domain/models/daily_mission_model.dart';
 import '../domain/models/study_material_model.dart';
 import '../../study/presentation/practice_screen.dart';
+import '../../study/domain/providers/schedule_provider.dart';
 
 /// Home screen dashboard matching the design.
 class HomeScreen extends ConsumerStatefulWidget {
@@ -58,6 +59,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final userAsync = ref.watch(userProvider);
     final missionsAsync = ref.watch(dailyMissionsProvider);
     final materialsAsync = ref.watch(studyMaterialsProvider);
+    final scheduleState = ref.watch(scheduleNotifierProvider);
+    final hasSchedule = scheduleState.schedules.isNotEmpty;
 
     final stats = statsAsync.value ?? const UserStats(streak: 0, xp: 0, rank: 0, presence: '0%');
     final user = userAsync.value ?? UserModel(
@@ -277,95 +280,205 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             const SizedBox(height: 24),
 
-            // ── 4. Daily Missions ───────────────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Daily Missions',
-                  style: GoogleFonts.nunito(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
+            if (!hasSchedule) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFEF3C7), Color(0xFFFFFBEB)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: const Color(0xFFFDE68A), width: 1.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFFEF3C7).withOpacity(0.4),
+                      blurRadius: 12,
+                      offset: const Offset(0, 6),
+                    ),
+                  ],
                 ),
-                Text(
-                  'See All',
-                  style: GoogleFonts.nunito(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textSecondary,
+                child: Column(
+                  children: [
+                    const Icon(Icons.event_note_rounded, size: 52, color: AppColors.primaryOrange),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Yuk, Isi Jadwal Belajarmu!',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.nunito(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Silakan scan atau buat jadwal belajarmu terlebih dahulu di menu Jadwal untuk membuka Misi Harian dan rekomendasi materi belajar yang sesuai untukmu!',
+                      textAlign: TextAlign.center,
+                      style: GoogleFonts.nunito(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textSecondary,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              // ── 4. Daily Missions ───────────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Daily Missions',
+                    style: GoogleFonts.nunito(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+                  Text(
+                    'See All',
+                    style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
 
-            missionsAsync.when(
-              data: (missions) => missions.isEmpty 
-                  ? _buildEmptyState('No missions yet!')
-                  : Column(
-                      children: missions.map((m) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _buildQuizItem(
-                          subject: m.title,
-                          status: m.isCompleted ? 'Done' : 'To do',
-                          statusColor: m.isCompleted ? AppColors.statusDoneText : AppColors.statusToDoText,
-                          statusBg: m.isCompleted ? AppColors.statusDoneBg : const Color(0xFFF3F4F6),
-                          iconBg: (m.subject == 'Biologi' ? Colors.green : Colors.blue).withValues(alpha: 0.12),
-                          icon: m.subject == 'Biologi' ? Icons.eco_rounded : Icons.psychology_rounded,
-                          iconColor: m.subject == 'Biologi' ? Colors.green : Colors.blue,
-                          onTap: () {
-                            debugPrint('[HomeScreen] Mission tapped: ${m.title}');
-                            final title = m.title.toLowerCase();
-                            if (title.contains('socratic') || title.contains('math')) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const PracticeScreen(
-                                    subject: 'Matematika',
+              missionsAsync.when(
+                data: (missions) => missions.isEmpty 
+                    ? _buildEmptyState('No missions yet!')
+                    : Column(
+                        children: missions.map((m) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildQuizItem(
+                            subject: m.title,
+                            status: m.isCompleted ? 'Done' : 'To do',
+                            statusColor: m.isCompleted ? AppColors.statusDoneText : AppColors.statusToDoText,
+                            statusBg: m.isCompleted ? AppColors.statusDoneBg : const Color(0xFFF3F4F6),
+                            iconBg: (m.subject == 'Biologi' ? Colors.green : Colors.blue).withValues(alpha: 0.12),
+                            icon: m.subject == 'Biologi' ? Icons.eco_rounded : Icons.psychology_rounded,
+                            iconColor: m.subject == 'Biologi' ? Colors.green : Colors.blue,
+                            onTap: () {
+                              debugPrint('[HomeScreen] Mission tapped: ${m.title}');
+                              final title = m.title.toLowerCase();
+                              if (title.contains('socratic') || title.contains('math')) {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => const PracticeScreen(
+                                      subject: 'Matematika',
+                                    ),
                                   ),
-                                ),
-                              );
-                            }
-                          },
-                        ),
-                      )).toList(),
+                                );
+                              }
+                            },
+                          ),
+                        )).toList(),
+                      ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, _) => Text('Error: $err'),
+              ),
+
+              const SizedBox(height: 32),
+
+              // ── 5. Study Materials ──────────────────────────────────────
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Study Materials',
+                    style: GoogleFonts.nunito(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
                     ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Text('Error: $err'),
-            ),
-
-            const SizedBox(height: 32),
-
-            // ── 5. Study Materials ──────────────────────────────────────
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Study Materials',
-                  style: GoogleFonts.nunito(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.textPrimary,
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
+                ],
+              ),
+              const SizedBox(height: 16),
 
-            materialsAsync.when(
-              data: (materials) => materials.isEmpty
-                  ? _buildEmptyState('No materials shared yet!')
-                  : Column(
-                      children: materials.map((m) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _buildMaterialCard(m),
-                      )).toList(),
-                    ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (err, _) => Text('Error: $err'),
-            ),
+              materialsAsync.when(
+                data: (materials) {
+                  final scheduledSubjects = scheduleState.schedules
+                      .map((s) => s.subject.toLowerCase())
+                      .toSet();
+
+                  // 1. Saring materi yang sesuai dengan jadwal aktif hari ini
+                  final filtered = materials
+                      .where((m) => _matchesScheduledSubject(m, scheduledSubjects))
+                      .toList();
+
+                  if (filtered.isEmpty) {
+                    return _buildEmptyState('Belum ada materi untuk jadwal belajarmu hari ini!');
+                  }
+
+                  final userStyle = user.learningStyle?.toLowerCase() ?? 'visual';
+
+                  // 2. Pisahkan Rekomendasi (sesuai VAK user) dan Metode Lainnya (VAK berbeda)
+                  final recommended = filtered
+                      .where((m) => _getVakStyle(m).toLowerCase() == userStyle)
+                      .toList();
+
+                  final others = filtered
+                      .where((m) => _getVakStyle(m).toLowerCase() != userStyle)
+                      .toList();
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Section Rekomendasi
+                      if (recommended.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8, top: 4),
+                          child: Text(
+                            '⭐ Rekomendasi Gaya Belajarmu (${user.learningStyle?.toUpperCase() ?? "VISUAL"})',
+                            style: GoogleFonts.nunito(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.primaryOrange,
+                            ),
+                          ),
+                        ),
+                        ...recommended.map((m) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildMaterialCard(m),
+                        )),
+                        const SizedBox(height: 12),
+                      ],
+
+                      // Section Metode Lainnya
+                      if (others.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8, top: 8),
+                          child: Text(
+                            '📖 Metode Belajar Lainnya (Multi-Sensori)',
+                            style: GoogleFonts.nunito(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.textLight,
+                            ),
+                          ),
+                        ),
+                        ...others.map((m) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildMaterialCard(m),
+                        )),
+                      ],
+                    ],
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (err, _) => Text('Error: $err'),
+              ),
+            ],
           ],
         ),
       ),
@@ -572,21 +685,42 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryOrangeLighter,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    m.category.toUpperCase(),
-                    style: GoogleFonts.nunito(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w900,
-                      color: AppColors.primaryOrange,
-                      letterSpacing: 0.5,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryOrangeLighter,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        m.category.toUpperCase(),
+                        style: GoogleFonts.nunito(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primaryOrange,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: _getVakColor(_getVakStyle(m)).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        _getVakStyle(m).toUpperCase(),
+                        style: GoogleFonts.nunito(
+                          fontSize: 9,
+                          fontWeight: FontWeight.w900,
+                          color: _getVakColor(_getVakStyle(m)),
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -616,6 +750,45 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ],
       ),
     );
+  }
+
+  String _getVakStyle(StudyMaterial m) {
+    final title = m.title.toLowerCase();
+    final desc = m.description.toLowerCase();
+    final cat = m.category.toLowerCase();
+    
+    if (title.contains('visual') || cat.contains('visual') || title.contains('mind map') || title.contains('diagram') || title.contains('infografis') || title.contains('flowchart')) {
+      return 'Visual';
+    } else if (title.contains('auditory') || cat.contains('auditory') || title.contains('podcast') || title.contains('audio') || title.contains('guide')) {
+      return 'Auditory';
+    } else if (title.contains('kinesthetic') || cat.contains('kinesthetic') || title.contains('praktik') || title.contains('eksperimen') || title.contains('aktivitas') || title.contains('simulasi')) {
+      return 'Kinesthetic';
+    }
+    
+    // Fallback based on id hash to ensure even distribution
+    final index = m.id.hashCode.abs() % 3;
+    return ['Visual', 'Auditory', 'Kinesthetic'][index];
+  }
+
+  bool _matchesScheduledSubject(StudyMaterial m, Set<String> subjects) {
+    if (subjects.isEmpty) return true; // Tampilkan semua jika jadwal kosong
+    final title = m.title.toLowerCase();
+    final desc = m.description.toLowerCase();
+    final cat = m.category.toLowerCase();
+    
+    for (final s in subjects) {
+      final cleanS = s.replaceAll('b. ', '').trim();
+      if (title.contains(cleanS) || desc.contains(cleanS) || cat.contains(cleanS)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  Color _getVakColor(String style) {
+    if (style == 'Visual') return const Color(0xFF3B82F6); // Blue
+    if (style == 'Auditory') return const Color(0xFF10B981); // Green
+    return const Color(0xFF8B5CF6); // Purple/Violet
   }
 
   Widget _buildEmptyState(String message) {

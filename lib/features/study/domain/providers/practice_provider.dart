@@ -146,10 +146,14 @@ class PracticeNotifier extends StateNotifier<PracticeState> {
       difficulty: difficulty,
     );
 
-    // 2. Fallback to seed data if Mongo is empty or fails
+    // 2. Tampilkan error jika Mongo kosong atau gagal (tidak menggunakan local seed fallback)
     if (questions.isEmpty) {
-      questions = _getSeedQuestions(subject);
-      debugPrint('[PracticeNotifier] Using seed fallback for $subject');
+      state = state.copyWith(
+        isLoading: false,
+        questions: [],
+        error: 'Gagal memuat soal dari server (Internal Server Error / No Questions Found).',
+      );
+      return;
     } else {
       debugPrint('[PracticeNotifier] Loaded ${questions.length} questions from MongoDB Atlas');
     }
@@ -312,8 +316,9 @@ Tugas: Ajukan SATU pertanyaan penuntun Socratic.''';
       );
 
       // Update Profile XP & Level
-      final profileRes = await _supabase.from('profiles').select('xp, level').eq('id', userId).single();
-      final newXp = ((profileRes['xp'] as int?) ?? 0) + xpEarned;
+      final profileRes = await _supabase.from('profiles').select('xp, level').eq('id', userId).maybeSingle();
+      final currentXp = profileRes != null ? ((profileRes['xp'] as num?)?.toInt() ?? 0) : 0;
+      final newXp = currentXp + xpEarned;
       final newLevel = (newXp / 1000).floor() + 1;
 
       await _supabase.from('profiles').update({'xp': newXp, 'level': newLevel}).eq('id', userId);

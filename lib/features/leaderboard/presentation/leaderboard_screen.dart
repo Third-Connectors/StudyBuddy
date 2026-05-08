@@ -112,7 +112,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
 
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _supabase
-          .from('user_stats')
+          .from('profiles')
           .stream(primaryKey: ['id'])
           .order('xp', ascending: false),
       builder: (context, snapshot) {
@@ -123,7 +123,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
         // Filter users in the same league
         final allUsers = snapshot.data!;
         final leagueUsers = allUsers.where((u) {
-          final xp = u['xp'] as int;
+          final xp = (u['xp'] as num?)?.toInt() ?? 0;
           return xp >= minXp && (maxXp == null || xp <= maxXp);
         }).toList();
 
@@ -141,7 +141,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           itemCount: leagueUsers.length,
           itemBuilder: (context, index) {
             final user = leagueUsers[index];
-            final isMe = user['user_id'] == _supabase.auth.currentUser?.id;
+            final isMe = user['id'] == _supabase.auth.currentUser?.id;
             final rank = index + 1;
 
             return _buildRankItem(rank, user, isMe, tier.color);
@@ -152,6 +152,9 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
   }
 
   Widget _buildRankItem(int rank, Map<String, dynamic> data, bool isMe, Color tierColor) {
+    final name = data['name'] as String? ?? data['full_name'] as String? ?? 'Student';
+    final initial = name.isNotEmpty ? name.substring(0, 1).toUpperCase() : 'S';
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -184,7 +187,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
           CircleAvatar(
             backgroundColor: tierColor.withOpacity(0.2),
             child: Text(
-              (data['full_name'] as String? ?? 'U').substring(0, 1).toUpperCase(),
+              initial,
               style: GoogleFonts.nunito(fontWeight: FontWeight.w800, color: tierColor),
             ),
           ),
@@ -195,7 +198,7 @@ class _LeaderboardScreenState extends ConsumerState<LeaderboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  data['full_name'] ?? 'Student',
+                  name,
                   style: GoogleFonts.nunito(
                     fontSize: 16,
                     fontWeight: isMe ? FontWeight.w800 : FontWeight.w700,

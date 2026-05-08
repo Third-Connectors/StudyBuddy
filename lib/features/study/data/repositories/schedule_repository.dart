@@ -177,6 +177,29 @@ Format Output JSON:
     }
   }
 
+  /// Helper untuk memformat DateTime menjadi HH:mm
+  String _formatTime(DateTime dt) {
+    return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  /// Helper untuk menambahkan 2 jam ke DateTime terakhir sekolah
+  String _addTwoHours(DateTime dt) {
+    final hour = (dt.hour + 2) % 24;
+    return '${hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _getWeekdayName(int weekday) {
+    switch (weekday) {
+      case 1: return 'SENIN';
+      case 2: return 'SELASA';
+      case 3: return 'RABU';
+      case 4: return 'KAMIS';
+      case 5: return 'JUMAT';
+      case 6: return 'SABTU';
+      default: return 'MINGGU';
+    }
+  }
+
   /// Generate optimized study schedule using Gemini AI.
   Future<List<ScheduleEntry>> generateOptimizedStudySchedule({
     required String userId,
@@ -189,13 +212,47 @@ Format Output JSON:
       final subjectList = subjects.join(', ');
       final weakList = weakSubjects?.join(', ') ?? '';
 
+      // Cari jam sekolah terakhir untuk setiap hari guna menentukan waktu mulai belajar rumah (+2 jam)
+      final Map<String, DateTime> dailyLastHours = {};
+      for (final entry in existingSchedule) {
+        final dayName = entry.recurringDays.isNotEmpty 
+            ? entry.recurringDays.first 
+            : _getWeekdayName(entry.startTime.weekday);
+        final endTime = entry.endTime; 
+        if (!dailyLastHours.containsKey(dayName) || endTime.isAfter(dailyLastHours[dayName]!)) {
+          dailyLastHours[dayName] = endTime;
+        }
+      }
+
+      final lastHoursInfo = dailyLastHours.entries
+          .map((e) => '- ${e.key}: Sekolah selesai pukul ${_formatTime(e.value)}, maka belajar mandiri di rumah HARUS dimulai pukul ${_addTwoHours(e.value)}')
+          .join('\n');
+
       final prompt = '''
-Buatkan jadwal belajar mingguan untuk siswa $vakStyle.
-Mata pelajaran: $subjectList.
-${weakList.isNotEmpty ? 'Mata pelajaran yang perlu diperkuat: $weakList.' : ''}
-Waktu belajar: 16:00 - 21:00.
-Format respons: JSON array.
-[{"day": "Senin", "subject": "Math", "startTime": "16:00", "endTime": "17:30"}]''';
+Anda adalah pakar manajemen waktu belajar dan asisten akademis SMA di Indonesia.
+Tugas Anda adalah membuatkan jadwal belajar mandiri di rumah (study-at-home schedule) yang optimal untuk siswa dengan gaya belajar $vakStyle.
+
+Mata pelajaran yang harus dipelajari di rumah: $subjectList.
+${weakList.isNotEmpty ? 'Fokus utama (perlu porsi belajar lebih banyak/prioritas): $weakList.' : ''}
+
+Ketentuan Waktu Mulai (PENTING: Belajar mandiri di rumah harus dimulai tepat 2 jam setelah jam sekolah terakhir selesai demi memberikan waktu istirahat perjalanan pulang bagi siswa):
+$lastHoursInfo
+Jika ada hari yang tidak tercantum di atas, asumsikan belajar mandiri di rumah dimulai pukul 16:00.
+
+Ketentuan Penyusunan Jadwal:
+1. Batasi waktu belajar mandiri di rumah selesai maksimal pukul 21:30 setiap harinya.
+2. Sesi Belajar harus optimal (antara 45 - 90 menit per sesi).
+3. Jadwal harus seimbang dan wajib menyisipkan waktu ISHOMA (Istirahat, Sholat, Makan) dan santai di sela-sela belajar (misal: pukul 17:30 - 19:00 untuk Sholat Magrib, Makan Malam, Sholat Isya) agar seimbang dan tidak melelahkan.
+4. Sesuaikan metode penyusunan dengan gaya belajar $vakStyle (misal: gaya Visual diberi jeda untuk membaca ringkasan bergambar, Auditori diberi waktu mendengar audio book, Kinestetik diselingi aktivitas fisik ringan saat break).
+
+Format respons HARUS berupa JSON array murni tanpa pembuka/penutup markdown tambahan, dengan struktur sebagai berikut:
+[
+  {"day": "Senin", "subject": "Belajar Matematika", "startTime": "15:00", "endTime": "16:00"},
+  {"day": "Senin", "subject": "Break & Snack", "startTime": "16:00", "endTime": "16:30"},
+  {"day": "Senin", "subject": "Belajar Fisika", "startTime": "16:30", "endTime": "17:30"},
+  {"day": "Senin", "subject": "ISHOMA (Sholat Magrib, Makan, Isya)", "startTime": "17:30", "endTime": "19:00"},
+  {"day": "Senin", "subject": "Belajar Kimia", "startTime": "19:00", "endTime": "20:00"}
+]''';
 
       final response = await _geminiClient.post(
         'models/${ApiConfig.geminiModel}:generateContent',
@@ -242,6 +299,7 @@ Format respons: JSON array.
           startTime: _parseTime(day, s['startTime'] ?? '07:00'),
           endTime: _parseTime(day, s['endTime'] ?? '08:30'),
           location: s['location'] ?? '',
+          recurringDays: [day.toUpperCase()],
           createdAt: DateTime.now(),
         );
       }).toList();
@@ -267,6 +325,7 @@ Format respons: JSON array.
           startTime: _parseTime(day, item['startTime'] ?? '16:00'),
           endTime: _parseTime(day, item['endTime'] ?? '17:30'),
           location: 'Rumah',
+          recurringDays: [day.toUpperCase()],
           createdAt: DateTime.now(),
         );
       }).toList();

@@ -53,7 +53,7 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
               child: CircularProgressIndicator(color: AppColors.primaryOrange),
             )
           : state.questions.isEmpty
-          ? _buildEmptyState()
+          ? _buildEmptyState(error: state.error)
           : Column(
               children: [
                 _buildProgressBar(state),
@@ -618,17 +618,34 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState({String? error}) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.quiz_outlined, size: 64, color: AppColors.textLight),
-          const SizedBox(height: 16),
-          Text('Soal belum tersedia', style: AppTextStyles.titleMedium),
-          const SizedBox(height: 8),
-          Text('Coba mata pelajaran lain', style: AppTextStyles.bodySmall),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              error != null ? Icons.error_outline_rounded : Icons.quiz_outlined,
+              size: 64,
+              color: error != null ? Colors.redAccent : AppColors.textLight,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              error ?? 'Soal belum tersedia',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.titleMedium.copyWith(
+                color: error != null ? Colors.redAccent.shade700 : AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              error != null ? 'Pastikan koneksi internet atau server berjalan dengan baik.' : 'Coba mata pelajaran lain',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodySmall,
+            ),
+          ],
+        ),
       ),
     );
   }

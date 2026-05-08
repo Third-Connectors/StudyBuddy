@@ -48,7 +48,7 @@ abstract final class ApiConfig {
   /// Get your API key from: https://makersuite.google.com/app/apikey
   ///
   /// ⚠️ SECURITY: In production, route through backend to hide this key
-  static const String geminiApiKey = 'AIzaSyB-ldUVNrHndQ84LblWey6kg7fZxGAglOk';
+  static const String geminiApiKey = String.fromEnvironment('GEMINI_API_KEY', defaultValue: '');
 
   /// Gemini API base URL
   static const String geminiBaseUrl =
@@ -106,6 +106,20 @@ SUBJECTS: Matematika, Fisika, Kimia, Biologi, Bahasa Indonesia,
   static const String colQuestions = 'questions';
   static const String colQuizResults = 'quiz_results';
   static const String colTutorSessions = 'tutor_sessions';
+
+  // ── Midtrans Payment Gateway ──────────────────────────────────────────────
+
+  /// 💳 Midtrans Client Key (Untuk integrasi Mobile SDK / snap frontend)
+  static const String midtransClientKey = String.fromEnvironment('MIDTRANS_CLIENT_KEY', defaultValue: '');
+
+  /// 🔑 Midtrans Server Key (Untuk otorisasi transaksi sisi backend)
+  static const String midtransServerKey = String.fromEnvironment('MIDTRANS_SERVER_KEY', defaultValue: '');
+
+  /// 🆔 Midtrans Merchant ID
+  static const String midtransMerchantId = 'M068686375';
+
+  /// 🌐 Menggunakan Sandbox Environment (Set false jika sudah Production)
+  static const bool isMidtransSandbox = true;
 
   // ── Firebase Configuration ────────────────────────────────────────────────
 
