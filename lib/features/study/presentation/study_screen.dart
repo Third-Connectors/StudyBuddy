@@ -34,21 +34,114 @@ class StudyScreen extends ConsumerWidget {
     final hasSchedule = scheduleState.schedules.isNotEmpty;
     final countdown = ref.watch(countdownProvider);
     final subState = ref.watch(subscriptionProvider);
-    final isSnbtLocked = countdown.days >= 180 && !subState.isPremium;
-
-    // Filter mata pelajaran berdasarkan jadwal jika diisi
+    final isSnbtLocked = countdown.days >= 180 && !subState.isPremium;    // Filter mata pelajaran berdasarkan jadwal jika diisi
     final List<SubjectModel> displaySubjects;
     if (!hasSchedule) {
       displaySubjects = [];
     } else if (selectedTab == 0) {
-      final scheduledSubjects = scheduleState.schedules.map((s) => s.subject.toLowerCase()).toSet();
-      displaySubjects = subjects.where((sub) {
-        final subName = sub.name.toLowerCase();
-        return scheduledSubjects.any((sched) => 
-          sched.contains(subName) || subName.contains(sched) || 
-          (sched.contains('inggris') && subName.contains('inggris')) ||
-          (sched.contains('indonesia') && subName.contains('indonesia')) ||
-          (sched.contains('matematika') && subName.contains('matematika'))
+      // Dapatkan semua mata pelajaran unik dari jadwal secara konsisten!
+      // Abaikan kegiatan non-akademis (seperti istirahat, ishoma, dll.) dari list study
+      final nonAcademicKeywords = {
+        'ishoma', 'istirahat', 'isoma', 'sholat', 'makan', 'tidur', 
+        'free', 'kosong', 'break', 'refreshing', 'bermain', 'game', 'main'
+      };
+
+      final uniqueScheduledSubjects = scheduleState.schedules
+          .map((s) => s.subject.trim())
+          .where((sub) => sub.isNotEmpty && !nonAcademicKeywords.any((keyword) => sub.toLowerCase().contains(keyword)))
+          .toSet();
+
+      displaySubjects = uniqueScheduledSubjects.map((subName) {
+        final upperSub = subName.toUpperCase();
+        var iconColor = const Color(0xFF3B82F6);
+        var icon = Icons.menu_book_rounded;
+        var nextTopic = 'Latihan Soal & Review';
+        var progress = 0.35;
+        var currentChapter = 3;
+        var totalChapters = 8;
+        
+        if (upperSub.contains('SB') || upperSub.contains('SENI')) {
+          iconColor = const Color(0xFFEC4899);
+          icon = Icons.palette_rounded;
+          nextTopic = 'Apresiasi Karya Seni';
+          progress = 0.60;
+          currentChapter = 5;
+        } else if (upperSub.contains('ING') || upperSub.contains('ENG') || upperSub.contains('EL')) {
+          iconColor = const Color(0xFF3B82F6);
+          icon = Icons.translate_rounded;
+          nextTopic = 'Reading & Writing Exercise';
+          progress = 0.45;
+          currentChapter = 4;
+        } else if (upperSub.contains('AL') || upperSub.contains('MTK') || upperSub.contains('MW') || upperSub.contains('MAT')) {
+          iconColor = const Color(0xFFF59E0B);
+          icon = Icons.functions_rounded;
+          nextTopic = 'Latihan Rumus & Aljabar';
+          progress = 0.50;
+          currentChapter = 6;
+        } else if (upperSub.contains('GEO')) {
+          iconColor = const Color(0xFF10B981);
+          icon = Icons.public_rounded;
+          nextTopic = 'Peta & Pola Spasial';
+          progress = 0.40;
+          currentChapter = 3;
+        } else if (upperSub.contains('SOS')) {
+          iconColor = const Color(0xFF8B5CF6);
+          icon = Icons.people_rounded;
+          nextTopic = 'Interaksi Sosial';
+          progress = 0.55;
+          currentChapter = 4;
+        } else if (upperSub.contains('PAI') || upperSub.contains('AGAMA')) {
+          iconColor = const Color(0xFF14B8A6);
+          icon = Icons.mosque_rounded;
+          nextTopic = 'Akhlak & Sejarah Kebudayaan';
+          progress = 0.70;
+          currentChapter = 5;
+        } else if (upperSub.contains('BK')) {
+          iconColor = const Color(0xFF6366F1);
+          icon = Icons.psychology_rounded;
+          nextTopic = 'Konseling Karir';
+          progress = 0.80;
+          currentChapter = 6;
+        } else if (upperSub.contains('PKWU') || upperSub.contains('PKW')) {
+          iconColor = const Color(0xFFF59E0B);
+          icon = Icons.business_center_rounded;
+          nextTopic = 'Perencanaan Usaha';
+          progress = 0.30;
+          currentChapter = 2;
+        } else if (upperSub.contains('BIN') || upperSub.contains('IND')) {
+          iconColor = const Color(0xFFEF4444);
+          icon = Icons.history_edu_rounded;
+          nextTopic = 'Menulis Karya Ilmiah';
+          progress = 0.65;
+          currentChapter = 5;
+        } else if (upperSub.contains('SEJ')) {
+          iconColor = const Color(0xFF6366F1);
+          icon = Icons.history_rounded;
+          nextTopic = 'Peristiwa Sejarah Dunia';
+          progress = 0.40;
+          currentChapter = 3;
+        } else if (upperSub.contains('PPKN') || upperSub.contains('PPK')) {
+          iconColor = const Color(0xFF10B981);
+          icon = Icons.gavel_rounded;
+          nextTopic = 'Sistem Hukum & Konstitusi';
+          progress = 0.50;
+          currentChapter = 4;
+        } else if (upperSub.contains('PJOK') || upperSub.contains('OR')) {
+          iconColor = const Color(0xFFF59E0B);
+          icon = Icons.sports_soccer_rounded;
+          nextTopic = 'Kesehatan Jasmani';
+          progress = 0.75;
+          currentChapter = 6;
+        }
+
+        return SubjectModel(
+          name: subName,
+          iconColor: iconColor,
+          icon: icon,
+          currentChapter: currentChapter,
+          totalChapters: totalChapters,
+          progress: progress,
+          nextTopic: nextTopic,
         );
       }).toList();
     } else if (isSnbtLocked) {
@@ -93,6 +186,23 @@ class StudyScreen extends ConsumerWidget {
           nextTopic: 'Logika Analitis & Kognitif',
         ),
       ];
+    }
+
+    final completedMap = ref.watch(completedChaptersProvider);
+    double calculatedOverallProgress = 0.0;
+    int subjectsAbove80Count = 0;
+    
+    if (displaySubjects.isNotEmpty) {
+      double totalProgressSum = 0.0;
+      for (final s in displaySubjects) {
+        final completedSet = completedMap[s.name] ?? {};
+        final subProgress = completedSet.length / 5.0; // 5 bab total
+        totalProgressSum += subProgress;
+        if (subProgress >= 0.8) {
+          subjectsAbove80Count++;
+        }
+      }
+      calculatedOverallProgress = totalProgressSum / displaySubjects.length;
     }
 
     return SafeArea(
@@ -188,8 +298,8 @@ class StudyScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                 child: _OverallProgressCard(
                   data: StudyOverallData(
-                    overallProgress: overallData.overallProgress,
-                    subjectsAbove80: overallData.subjectsAbove80,
+                    overallProgress: displaySubjects.isEmpty ? 0.0 : calculatedOverallProgress,
+                    subjectsAbove80: displaySubjects.isEmpty ? 0 : subjectsAbove80Count,
                     totalSubjects: displaySubjects.length,
                   ),
                 ),
@@ -209,10 +319,10 @@ class StudyScreen extends ConsumerWidget {
             ),
 
             // ── 4. AI Suggestion Card ─────────────────────────────────────
-            const SliverToBoxAdapter(
+            SliverToBoxAdapter(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: AiSuggestionCardWidget(),
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                child: AiSuggestionCardWidget(activeSubjects: displaySubjects),
               ),
             ),
 
@@ -373,7 +483,9 @@ class _OverallProgressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final percentLabel = '${(data.overallProgress * 100).round()}%';
+    final isEmpty = data.totalSubjects == 0;
+    final percentLabel = isEmpty ? '0%' : '${(data.overallProgress * 100).round()}%';
+    final progressColor = isEmpty ? AppColors.textLight : AppColors.primaryOrange;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
@@ -401,7 +513,7 @@ class _OverallProgressCard extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontSize: 16,
                   fontWeight: FontWeight.w800,
-                  color: AppColors.primaryOrange,
+                  color: progressColor,
                 ),
               ),
             ],
@@ -410,14 +522,19 @@ class _OverallProgressCard extends StatelessWidget {
           const SizedBox(height: 10),
 
           // Progress bar
-          CustomProgressBar(progress: data.overallProgress, height: 8),
+          CustomProgressBar(
+            progress: isEmpty ? 0.0 : data.overallProgress, 
+            height: 8,
+            activeColor: progressColor,
+          ),
 
           const SizedBox(height: 8),
 
           // Supporting note
           Text(
-            '${data.subjectsAbove80} dari ${data.totalSubjects} '
-            'mata pelajaran sudah di atas 80%',
+            isEmpty 
+                ? 'Belum ada progres karena jadwal masih kosong.'
+                : '${data.subjectsAbove80} dari ${data.totalSubjects} mata pelajaran sudah di atas 80%',
             style: AppTextStyles.bodySmall,
           ),
         ],

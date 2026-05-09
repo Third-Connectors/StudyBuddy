@@ -73,18 +73,35 @@ class ScheduleNotifier extends StateNotifier<ScheduleState> {
     }
   }
 
-  /// Process the selected image with OCR.
+  /// Process the selected image with OCR and directly generate optimized study schedule.
   Future<void> processImage() async {
-    if (state.selectedImage == null) return;
+    if (state.selectedImage == null || state.isScanning) return;
 
     state = state.copyWith(isScanning: true, error: null);
 
     try {
-      final result = await _scheduleRepository.uploadScheduleImage(
+      // 1. Ekstrak jadwal sekolah menggunakan OCR
+      final ocrResult = await _scheduleRepository.uploadScheduleImage(
         state.selectedImage!.path,
       );
 
-      state = state.copyWith(ocrResult: result, isScanning: false);
+      // 2. Langsung generate jadwal belajar rumah berdasarkan hasil OCR sekolah tersebut
+      final userId = _scheduleRepository.currentUserId;
+      final optimizedEntries = await _scheduleRepository.generateOptimizedStudySchedule(
+        userId: userId,
+        vakStyle: 'Visual', // Default gaya belajar, bisa disesuaikan dinamis
+        existingSchedule: ocrResult.extractedSchedules,
+      );
+
+      // 3. Simpan hasil optimasi belajar rumah sebagai hasil ekstraksi akhir
+      final finalResult = OcrResult(
+        rawText: ocrResult.rawText,
+        extractedSchedules: optimizedEntries,
+        imageUrl: ocrResult.imageUrl,
+        scannedAt: ocrResult.scannedAt,
+      );
+
+      state = state.copyWith(ocrResult: finalResult, isScanning: false);
     } catch (e) {
       state = state.copyWith(
         isScanning: false,
@@ -93,9 +110,9 @@ class ScheduleNotifier extends StateNotifier<ScheduleState> {
     }
   }
 
-  /// Save extracted schedules to user's calendar.
+  /// Save extracted schedules to user's calendar in bulk.
   Future<void> saveSchedules() async {
-    if (state.ocrResult == null) return;
+    if (state.ocrResult == null || state.isSaving) return;
 
     final newSchedules = state.ocrResult!.extractedSchedules;
     state = state.copyWith(isSaving: true, error: null);
@@ -110,17 +127,12 @@ class ScheduleNotifier extends StateNotifier<ScheduleState> {
       selectedImage: null,
     );
 
-    // Lakukan penyimpanan ke server di background tanpa memblokir UI
+    // Lakukan penyimpanan ke server sekaligus (Bulk Save) untuk menghindari tabrakan request
     try {
-      for (final schedule in newSchedules) {
-        // Kita tidak memakai 'await' di sini agar proses loop tidak terhenti oleh timeout
-        _scheduleRepository.addSchedule(schedule).catchError((e) {
-          debugPrint(
-            '[ScheduleNotifier] Background save failed for ${schedule.subject}: $e',
-          );
-          return schedule;
-        });
-      }
+      final userId = _scheduleRepository.currentUserId;
+      _scheduleRepository.saveSchedule(userId, updatedSchedules).catchError((e) {
+        debugPrint('[ScheduleNotifier] Background bulk save failed: $e');
+      });
     } catch (e) {
       debugPrint('[ScheduleNotifier] Bulk save error: $e');
     }
@@ -129,9 +141,10 @@ class ScheduleNotifier extends StateNotifier<ScheduleState> {
   /// Load user's schedules.
   Future<void> loadSchedules(String userId) async {
     state = state.copyWith(error: null);
+    final targetUserId = userId == 'user_123' ? _scheduleRepository.currentUserId : userId;
 
     try {
-      final schedules = await _scheduleRepository.getSchedules(userId);
+      final schedules = await _scheduleRepository.getSchedules(targetUserId);
       if (schedules.isNotEmpty) {
         state = state.copyWith(schedules: schedules);
       }

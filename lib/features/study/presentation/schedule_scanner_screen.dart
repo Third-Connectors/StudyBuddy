@@ -8,7 +8,6 @@ import '../domain/providers/schedule_provider.dart';
 import '../data/models/schedule_model.dart';
 import 'schedule_scan_preview_page.dart';
 
-/// Schedule Scanner Screen - Upload and process schedule images.
 class ScheduleScannerScreen extends ConsumerStatefulWidget {
   const ScheduleScannerScreen({super.key});
 
@@ -41,13 +40,6 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.auto_awesome),
-            onPressed: () => _showOptimizeDialog(),
-            tooltip: 'Jadwal Belajar Optimal',
-          ),
-        ],
       ),
       body: _buildScheduleList(state),
     );
@@ -56,7 +48,6 @@ class _ScheduleScannerScreenState extends ConsumerState<ScheduleScannerScreen> {
   Widget _buildScheduleList(ScheduleState state) {
     return Column(
       children: [
-        // Scan banner
         Container(
           width: double.infinity,
           margin: const EdgeInsets.all(16),

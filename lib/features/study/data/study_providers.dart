@@ -135,3 +135,24 @@ final subjectListProvider = Provider<List<SubjectModel>>((ref) {
 /// Controls which tab is active on the Study screen segmented control.
 /// 0 = Mata Pelajaran, 1 = SNBT
 final studyTabIndexProvider = StateProvider<int>((ref) => 0);
+
+/// Keeps track of completed chapters per subject (e.g., {'Matematika': {0, 1, 2}})
+final completedChaptersProvider = StateNotifierProvider<CompletedChaptersNotifier, Map<String, Set<int>>>((ref) {
+  return CompletedChaptersNotifier();
+});
+
+class CompletedChaptersNotifier extends StateNotifier<Map<String, Set<int>>> {
+  CompletedChaptersNotifier() : super({});
+
+  void toggleChapter(String subject, int chapterIndex) {
+    final current = Map<String, Set<int>>.from(state);
+    final subjectSet = Set<int>.from(current[subject] ?? {});
+    if (subjectSet.contains(chapterIndex)) {
+      subjectSet.remove(chapterIndex);
+    } else {
+      subjectSet.add(chapterIndex);
+    }
+    current[subject] = subjectSet;
+    state = current;
+  }
+}

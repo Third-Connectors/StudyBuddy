@@ -20,6 +20,15 @@ class ScheduleRepository {
   ScheduleRepository(this._supabase, this._geminiClient)
     : _imagePicker = ImagePicker();
 
+  /// Get current authenticated user ID or a valid UUID fallback.
+  String get currentUserId {
+    final id = _supabase.auth.currentUser?.id;
+    if (id == null || id.isEmpty) {
+      return '00000000-0000-0000-0000-000000000000';
+    }
+    return id;
+  }
+
   /// Pick an image from gallery.
   Future<XFile?> pickImageFromGallery() async {
     return await _imagePicker.pickImage(
@@ -98,21 +107,69 @@ Format Output JSON:
     }
   }
 
+  Map<String, dynamic> _entryToRow(ScheduleEntry entry) {
+    final truncatedSubject = entry.subject.length > 100 
+        ? entry.subject.substring(0, 97) + '...' 
+        : entry.subject;
+        
+    final truncatedCode = entry.subjectCode.length > 10 
+        ? entry.subjectCode.substring(0, 10) 
+        : entry.subjectCode;
+        
+    final truncatedLocation = entry.location.length > 255 
+        ? entry.location.substring(0, 252) + '...' 
+        : entry.location;
+
+    return {
+      'id': entry.id,
+      'user_id': entry.userId,
+      'subject': truncatedSubject,
+      'subject_code': truncatedCode,
+      'start_time': entry.startTime.toIso8601String(),
+      'end_time': entry.endTime.toIso8601String(),
+      'location': truncatedLocation,
+      'notes': entry.notes,
+      'is_recurring': entry.isRecurring,
+      'recurring_days': entry.recurringDays,
+      'is_school_schedule': entry.isIndonesianSchoolHours,
+      'is_study_schedule': !entry.isIndonesianSchoolHours,
+      'source': 'ai_generated',
+    };
+  }
+
+  ScheduleEntry _rowToEntry(Map<String, dynamic> row) {
+    return ScheduleEntry(
+      id: row['id'] as String,
+      userId: row['user_id'] as String,
+      subject: row['subject'] as String,
+      subjectCode: row['subject_code'] as String? ?? '',
+      startTime: DateTime.parse(row['start_time'] as String),
+      endTime: DateTime.parse(row['end_time'] as String),
+      location: row['location'] as String? ?? '',
+      notes: row['notes'] as String?,
+      isRecurring: row['is_recurring'] as bool? ?? false,
+      recurringDays: row['recurring_days'] != null
+          ? List<String>.from(row['recurring_days'] as List<dynamic>)
+          : [],
+      createdAt: row['created_at'] != null 
+          ? DateTime.parse(row['created_at'] as String) 
+          : DateTime.now(),
+    );
+  }
+
   /// Get active schedule from Supabase.
   Future<List<ScheduleEntry>> getSchedules(String userId) async {
     try {
       final response = await _supabase
           .from('schedules')
           .select()
-          .eq('user_id', userId)
-          .eq('is_active', true)
-          .maybeSingle();
+          .eq('user_id', userId);
 
       if (response == null) return [];
 
-      final List items = response['items'] as List;
-      return items
-          .map((s) => ScheduleEntry.fromJson(s as Map<String, dynamic>))
+      final List rows = response as List;
+      return rows
+          .map((row) => _rowToEntry(row as Map<String, dynamic>))
           .toList();
     } catch (e) {
       debugPrint('[ScheduleRepository] Get schedules error: $e');
@@ -123,15 +180,15 @@ Format Output JSON:
   /// Save/Update entire schedule to Supabase.
   Future<void> saveSchedule(String userId, List<ScheduleEntry> entries) async {
     try {
-      final itemsJson = entries.map((e) => e.toJson()).toList();
+      // Hilangkan duplikat ID sebelum dikirim ke Supabase untuk mencegah error 21000
+      final uniqueEntries = <String, ScheduleEntry>{};
+      for (final entry in entries) {
+        uniqueEntries[entry.id] = entry;
+      }
 
-      await _supabase.from('schedules').upsert({
-        'user_id': userId,
-        'title': 'Jadwal Sekolah Utama',
-        'items': itemsJson,
-        'is_active': true,
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('user_id', userId);
+      final rows = uniqueEntries.values.map((e) => _entryToRow(e)).toList();
+
+      await _supabase.from('schedules').upsert(rows);
 
       debugPrint('[ScheduleRepository] Schedule saved to Supabase');
     } catch (e) {
@@ -139,19 +196,10 @@ Format Output JSON:
       throw Exception('Gagal menyimpan jadwal: $e');
     }
   }
-
   /// Add a single schedule entry to Supabase.
   Future<ScheduleEntry> addSchedule(ScheduleEntry entry) async {
     try {
-      final userId = _supabase.auth.currentUser?.id ?? entry.userId;
-
-      // Get existing schedule
-      final existing = await getSchedules(userId);
-      final updated = [...existing, entry];
-
-      // Save all
-      await saveSchedule(userId, updated);
-
+      await _supabase.from('schedules').upsert(_entryToRow(entry));
       return entry;
     } catch (e) {
       debugPrint('[ScheduleRepository] Add schedule error: $e');
@@ -289,10 +337,10 @@ Format respons HARUS berupa JSON array murni tanpa pembuka/penutup markdown tamb
       final data = jsonDecode(jsonStr);
       final List schedulesJson = data['schedules'] ?? [];
 
-      return schedulesJson.map((s) {
+      final List<ScheduleEntry> rawEntries = schedulesJson.map((s) {
         final day = s['day'] ?? 'SENIN';
         return ScheduleEntry(
-          id: 'sch_${DateTime.now().millisecondsSinceEpoch}_${s.hashCode}',
+          id: _generateUuidV4(),
           userId: 'current',
           subject: s['subject'] ?? '',
           subjectCode: 'UNK',
@@ -303,6 +351,31 @@ Format respons HARUS berupa JSON array murni tanpa pembuka/penutup markdown tamb
           createdAt: DateTime.now(),
         );
       }).toList();
+
+      // Gabungkan mata pelajaran berurutan yang sama di hari yang sama agar tidak double-double
+      final List<ScheduleEntry> mergedEntries = [];
+      for (final entry in rawEntries) {
+        if (mergedEntries.isEmpty) {
+          mergedEntries.add(entry);
+          continue;
+        }
+
+        final lastEntry = mergedEntries.last;
+        final isSameDay = listEquals(lastEntry.recurringDays, entry.recurringDays);
+        final isSameSubject = lastEntry.subject.trim().toUpperCase() == entry.subject.trim().toUpperCase();
+        final isConsecutive = lastEntry.endTime.hour == entry.startTime.hour && 
+                              lastEntry.endTime.minute == entry.startTime.minute;
+
+        if (isSameDay && isSameSubject && isConsecutive) {
+          mergedEntries[mergedEntries.length - 1] = lastEntry.copyWith(
+            endTime: entry.endTime,
+          );
+        } else {
+          mergedEntries.add(entry);
+        }
+      }
+
+      return mergedEntries;
     } catch (e) {
       return [];
     }
@@ -318,7 +391,7 @@ Format respons HARUS berupa JSON array murni tanpa pembuka/penutup markdown tamb
       return items.map((item) {
         final day = item['day'] ?? 'Senin';
         return ScheduleEntry(
-          id: 'opt_${DateTime.now().millisecondsSinceEpoch}_${item.hashCode}',
+          id: _generateUuidV4(),
           userId: userId,
           subject: item['subject'] ?? '',
           subjectCode: 'UNK',
@@ -334,12 +407,49 @@ Format respons HARUS berupa JSON array murni tanpa pembuka/penutup markdown tamb
     }
   }
 
+  String _generateUuidV4() {
+    final random = DateTime.now().microsecondsSinceEpoch;
+    final hexDigits = '0123456789abcdef';
+    
+    String randomHex(int length) {
+      return List.generate(length, (index) {
+        final seed = (random + index * 31) ^ (index * 17);
+        return hexDigits[seed % 16];
+      }).join();
+    }
+    
+    final s1 = randomHex(8);
+    final s2 = randomHex(4);
+    final s3 = '4' + randomHex(3);
+    final s4 = ['8', '9', 'a', 'b'][(random ^ 4) % 4] + randomHex(3);
+    final s5 = randomHex(12);
+    
+    return '$s1-$s2-$s3-$s4-$s5';
+  }
+
+  int _getWeekdayNumber(String day) {
+    final upperDay = day.toUpperCase();
+    if (upperDay.contains('SENIN')) return 1;
+    if (upperDay.contains('SELASA')) return 2;
+    if (upperDay.contains('RABU')) return 3;
+    if (upperDay.contains('KAMIS')) return 4;
+    if (upperDay.contains('JUMAT')) return 5;
+    if (upperDay.contains('SABTU')) return 6;
+    if (upperDay.contains('MINGGU')) return 7;
+    return 1;
+  }
+
   DateTime _parseTime(String day, String timeStr) {
     final parts = timeStr.split(':');
     final hour = int.tryParse(parts[0]) ?? 7;
     final minute = int.tryParse(parts[1]) ?? 0;
+    
     final now = DateTime.now();
-    return DateTime(now.year, now.month, now.day, hour, minute);
+    final targetWeekday = _getWeekdayNumber(day);
+    final difference = targetWeekday - now.weekday;
+    final targetDate = now.add(Duration(days: difference));
+    
+    return DateTime(targetDate.year, targetDate.month, targetDate.day, hour, minute);
   }
 
   String _getMimeType(String path) {

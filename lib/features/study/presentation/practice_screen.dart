@@ -621,30 +621,83 @@ class _PracticeScreenState extends ConsumerState<PracticeScreen> {
   Widget _buildEmptyState({String? error}) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              error != null ? Icons.error_outline_rounded : Icons.quiz_outlined,
-              size: 64,
-              color: error != null ? Colors.redAccent : AppColors.textLight,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              error ?? 'Soal belum tersedia',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.titleMedium.copyWith(
-                color: error != null ? Colors.redAccent.shade700 : AppColors.textPrimary,
+        padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 48),
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceWhite,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 4),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              error != null ? 'Pastikan koneksi internet atau server berjalan dengan baik.' : 'Coba mata pelajaran lain',
-              textAlign: TextAlign.center,
-              style: AppTextStyles.bodySmall,
-            ),
-          ],
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryOrange.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 32,
+                  color: AppColors.primaryOrange,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Soal Belum Tersedia',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.nunito(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Saat ini materi latihan untuk "${widget.subject}" sedang disiapkan. Jangan khawatir, kamu bisa mencoba mata pelajaran menarik lainnya terlebih dahulu!',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.nunito(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                  height: 1.5,
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryOrange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: Text(
+                    'Pilih Pelajaran Lain',
+                    style: GoogleFonts.nunito(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

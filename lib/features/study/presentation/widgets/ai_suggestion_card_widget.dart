@@ -15,6 +15,8 @@ import '../../../../core/theme/app_colors.dart';
 /// In a production build this widget would be driven by an AI provider
 /// (e.g. `ref.watch(aiSuggestionProvider)`). For now, the content is
 /// hard-coded to match the design mockup.
+import '../../domain/models/subject_model.dart';
+
 class AiSuggestionCardWidget extends StatelessWidget {
   /// Override the suggestion title. Defaults to the design-mockup value.
   final String? title;
@@ -22,7 +24,15 @@ class AiSuggestionCardWidget extends StatelessWidget {
   /// Override the suggestion body text. Defaults to the design-mockup value.
   final String? body;
 
-  const AiSuggestionCardWidget({super.key, this.title, this.body});
+  /// Active list of subjects to generate dynamic suggestions.
+  final List<SubjectModel> activeSubjects;
+
+  const AiSuggestionCardWidget({
+    super.key, 
+    this.title, 
+    this.body,
+    this.activeSubjects = const [],
+  });
 
   // ── Default content (matching design mockup) ───────────────────────────────
 
@@ -35,6 +45,20 @@ class AiSuggestionCardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String displayTitle = title ?? _defaultTitle;
+    String displayBody = body ?? _defaultBody;
+
+    if (activeSubjects.isEmpty) {
+      displayBody = 'Yuk, atur atau lengkapi jadwal belajarmu agar AI dapat memberikan saran belajar harian yang personal!';
+    } else {
+      // Ambil mata pelajaran yang progresnya paling rendah untuk diberikan rekomendasi pintar
+      final sortedSubjects = List<SubjectModel>.from(activeSubjects)
+        ..sort((a, b) => a.progress.compareTo(b.progress));
+      final focusSubject = sortedSubjects.first;
+      
+      displayBody = 'Materi ${focusSubject.name} masih perlu diperkuat. Coba pelajari bab ${focusSubject.currentChapter} mengenai ${focusSubject.nextTopic}!';
+    }
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -85,7 +109,7 @@ class AiSuggestionCardWidget extends StatelessWidget {
               children: [
                 // Title
                 Text(
-                  title ?? _defaultTitle,
+                  displayTitle,
                   style: GoogleFonts.nunito(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
@@ -98,7 +122,7 @@ class AiSuggestionCardWidget extends StatelessWidget {
 
                 // Body
                 Text(
-                  body ?? _defaultBody,
+                  displayBody,
                   style: GoogleFonts.nunito(
                     fontSize: 12,
                     fontWeight: FontWeight.w400,

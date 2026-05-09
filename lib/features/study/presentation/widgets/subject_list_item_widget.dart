@@ -1,32 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/custom_progress_bar.dart';
 import '../../domain/models/subject_model.dart';
-import '../practice_screen.dart';
+import '../../data/study_providers.dart';
+import '../subject_details_screen.dart';
 
 /// A single subject progress card in the Study screen's subject list.
-///
-/// Layout (left → right):
-/// - Rounded-square tinted icon
-/// - Subject name + chapter count (right-aligned)
-/// - Progress bar with percentage
-/// - "Selanjutnya: `<topic>`" hint
-/// - Chevron arrow
-class SubjectListItemWidget extends StatelessWidget {
+class SubjectListItemWidget extends ConsumerWidget {
   final SubjectModel subject;
 
   const SubjectListItemWidget({super.key, required this.subject});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final completedMap = ref.watch(completedChaptersProvider);
+    final completedSet = completedMap[subject.name] ?? {};
+    
+    const totalChapters = 5;
+    final dynamicProgress = completedSet.length / totalChapters;
+    final dynamicProgressPercent = (dynamicProgress * 100).round();
+    final dynamicChapterLabel = '${completedSet.length}/$totalChapters bab';
+
     return InkWell(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => PracticeScreen(subject: subject.name),
+            builder: (context) => SubjectDetailsScreen(
+              subjectName: subject.name,
+              icon: subject.icon,
+              iconColor: subject.iconColor,
+            ),
           ),
         );
       },
@@ -88,7 +95,7 @@ class SubjectListItemWidget extends StatelessWidget {
   
                       // Chapter count  e.g. "4/8 bab"
                       Text(
-                        subject.chapterLabel,
+                        dynamicChapterLabel,
                         style: GoogleFonts.nunito(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
@@ -105,7 +112,7 @@ class SubjectListItemWidget extends StatelessWidget {
                     children: [
                       Expanded(
                         child: CustomProgressBar(
-                          progress: subject.progress,
+                          progress: dynamicProgress,
                           height: 5,
                           activeColor: subject.iconColor,
                         ),
@@ -115,7 +122,7 @@ class SubjectListItemWidget extends StatelessWidget {
                       SizedBox(
                         width: 34,
                         child: Text(
-                          '${subject.progressPercent}%',
+                          '$dynamicProgressPercent%',
                           textAlign: TextAlign.right,
                           style: GoogleFonts.nunito(
                             fontSize: 12,

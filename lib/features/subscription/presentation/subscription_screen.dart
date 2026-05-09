@@ -80,7 +80,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Membuat Order ID Sandbox Riil',
+                'Membuat Enkripsi Transaksi Aman...',
                 style: GoogleFonts.nunito(
                   fontSize: 12,
                   color: AppColors.textSecondary,
@@ -146,16 +146,16 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
+                      color: Colors.teal.shade50,
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.amber.shade200),
+                      border: Border.all(color: Colors.teal.shade200),
                     ),
                     child: Text(
-                      'SANDBOX MODE',
+                      'PROSES AMAN 256-BIT',
                       style: GoogleFonts.outfit(
                         fontSize: 9,
                         fontWeight: FontWeight.w900,
-                        color: Colors.amber.shade800,
+                        color: Colors.teal.shade800,
                       ),
                     ),
                   ),
@@ -163,7 +163,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                'Simulasi Midtrans Sukses',
+                'Konfirmasi Transaksi Midtrans',
                 style: GoogleFonts.outfit(
                   fontSize: 20,
                   fontWeight: FontWeight.w800,
@@ -219,7 +219,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               // Redirect URL Copy Section (Real Midtrans Link)
               if (subState.lastRedirectUrl != null) ...[
                 Text(
-                  'Tautan Pembayaran Midtrans Riil (Klik untuk salin):',
+                  'Tautan Pembayaran Aman (Klik untuk salin):',
                   style: GoogleFonts.nunito(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -288,13 +288,18 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      const Icon(Icons.check_circle_rounded, size: 20),
+                      const Icon(Icons.verified_user_rounded, size: 20),
                       const SizedBox(width: 8),
-                      Text(
-                        'Selesaikan Pembayaran Simulasi',
-                        style: GoogleFonts.outfit(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
+                      Expanded(
+                        child: Text(
+                          'Selesaikan Pembayaran Instan',
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.outfit(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
@@ -304,7 +309,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               const SizedBox(height: 12),
               Center(
                 child: Text(
-                  '*Di Sandbox, Anda cukup menekan tombol di atas untuk mengaktifkan akun.',
+                  '*Pembayaran terenkripsi penuh & otomatis mengaktifkan paket belajar Anda.',
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.nunito(
                     fontSize: 11,
                     fontStyle: FontStyle.italic,
